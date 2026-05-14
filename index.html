@@ -48,17 +48,17 @@
     const GEMINI_API_KEY = "AIzaSyBbcQvIORUnuAE3KNc0VgKbwlgDI9gPd38";
 
     async function analyzeWithGemini(base64) {
-      const prompt = `你是一位极其严格的亚洲颜值鉴定专家。请对这张照片给出0-10分评分（保留一位小数），并返回JSON格式：
+      const prompt = `你是一位非常严格的亚洲颜值鉴定专家。请对这张照片给出0-10分评分（保留一位小数），并返回JSON：
 
 {
   "score": 6.4,
   "tier": "标准帅哥美女",
-  "reason": "简短理由（指出主要优势和硬伤）"
+  "reason": "简短理由"
 }
 
-评分要求非常严格：只有骨相优秀、五官和谐、整体高级感的才能给到7分以上。有明显P图、滤镜、比例失真、整容痕迹必须严格扣分。`;
+评分要严格，只有真正优秀、骨相好、五官协调的才能给到7分以上。有P图、滤镜、比例失真必须扣分。`;
 
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -85,7 +85,7 @@
         document.getElementById('preview').src = e.target.result;
         document.getElementById('uploadArea').classList.add('hidden');
         document.getElementById('resultArea').classList.remove('hidden');
-        document.getElementById('message').innerHTML = 'Gemini 正在深度分析颜值...';
+        document.getElementById('message').innerHTML = 'Gemini 正在分析...';
 
         try {
           const base64 = e.target.result.split(',')[1];
@@ -94,7 +94,7 @@
           document.getElementById('scoreArea').innerHTML = `
             <div class="text-7xl font-bold text-[#ff9500] mb-2">${result.score}</div>
             <div class="text-xl font-medium mb-4">${result.tier}</div>
-            <div class="text-sm text-gray-600 max-w-md mx-auto">${result.reason}</div>
+            <div class="text-sm text-gray-600">${result.reason}</div>
           `;
           document.getElementById('scoreArea').classList.remove('hidden');
           document.getElementById('message').innerHTML = '';
