@@ -18,7 +18,7 @@
     <div class="text-center mb-12">
       <h1 class="text-5xl font-semibold tracking-tighter text-[#1d1d1f]">肥爷专业颜值评定</h1>
       <p class="text-[#ff9500] font-medium text-xl tracking-wide mt-3">
-        一眼洞穿虚假展示面 · 素颜看上限 · 高P看底线
+        洞穿虚假展示面 · 素颜看上限 · 高P看底线
       </p>
     </div>
 
@@ -54,7 +54,7 @@
 
     <!-- 免责声明 -->
     <div class="mt-10 text-center text-xs text-gray-400 max-w-xl mx-auto leading-relaxed">
-      本网站虽能做到最大可能严格客观测评颜值，但毕竟不是万用真理。<br>
+      本网站专注为素人颜值测评 所以七八分基本绝迹 虽能做到最大可能严格客观测评颜值，但毕竟不是万用真理。<br>
       不同的状态、光照、角度都会让分数偶有差异，仅供参考即可。<br><br>
       如果想知道自己的颜值上限，尽管拿出自己最精致的照片。<br>
       不要拿自己的素颜照来挑战严格的AI算法，结果大概不会让你开心。
@@ -139,13 +139,13 @@
       if (score < 4.5) {
         return "基础提升空间很大。建议先从皮肤管理、发型和眉形开始优化。保持良好睡眠 + 规律护肤，比任何滤镜都有效。";
       } else if (score < 5.5) {
-        return "已经有一定基础。重点可以放在「气色」和「精神状态」上：改善睡眠、补充胶原、练习自然微笑，都能明显加分。";
-      } else if (score < 6.5) {
         return "属于有潜力的类型。建议研究自己的「优势五官」并强化它（比如眼睛好就学会画眼妆/戴合适眼镜）。同时注意下颌线和颈部线条。";
+      } else if (score < 6.5) {
+        return "颜值是你的优势。下一步可以往「精致度」发展：发型、妆容、穿搭、拍照角度和光线控制，都能让你从「好看」变成「惊艳」。";
       } else if (score < 7.5) {
-        return "骨相基础不错。下一步可以往「精致度」发展：发型、妆容、穿搭、拍照角度和光线控制，都能让你从「好看」变成「惊艳」。";
+        return "你已经拥有超强的颜值基础。建议把精力放在「气场」和「个人风格」上。好的状态、自信的表情、以及适合自己的高级感穿搭，会让分数继续往上走。";
       } else {
-        return "你已经拥有很强的颜值基础。建议把精力放在「气场」和「个人风格」上。好的状态、自信的表情、以及适合自己的高级感穿搭，会让分数继续往上走。";
+        return "颜值这条路 你已到了顶峰";
       }
     }
 
@@ -174,7 +174,7 @@
           document.getElementById('scoreArea').innerHTML = `
             <div class="text-8xl font-bold tracking-tighter mb-1" style="color:${label.color}">${score}</div>
             <div class="text-base font-medium mb-2" style="color:${label.color}">${label.text}</div>
-            <div class="text-sm text-gray-400 mb-6">肥爷综合评分（满分 9.2）</div>
+            <div class="text-sm text-gray-400 mb-6">肥爷综合评分（满分 8）</div>
             <div class="flex justify-center gap-8 text-sm text-gray-400">
               <span>性别：${gender}</span>
               <span>年龄：约 ${age} 岁</span>
