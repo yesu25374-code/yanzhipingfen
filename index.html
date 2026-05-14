@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>肥爷专业颜值评定 · 素颜看上限 · 高P看底线</title>
+    <title>肥爷专业颜值评定 · 修复卡顿版</title>
     <style>
         * {
             box-sizing: border-box;
@@ -15,7 +15,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            font-family: 'Segoe UI', 'Poppins', system-ui, -apple-system, 'Inter', sans-serif;
+            font-family: 'Segoe UI', 'Poppins', system-ui, sans-serif;
             padding: 20px;
             margin: 0;
         }
@@ -27,7 +27,6 @@
             border-radius: 3rem;
             box-shadow: 0 25px 45px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,215,150,0.2);
             overflow: hidden;
-            transition: all 0.2s ease;
         }
         .header {
             background: #000000aa;
@@ -38,17 +37,14 @@
         .header h1 {
             margin: 0;
             font-size: 1.9rem;
-            letter-spacing: 2px;
             background: linear-gradient(135deg, #FFD966, #FFB347);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
-            text-shadow: 0 2px 3px rgba(0,0,0,0.3);
         }
         .header p {
             margin: 0.5rem 0 0;
             color: #cccbc8;
-            font-style: italic;
             font-size: 0.85rem;
         }
         .sub {
@@ -86,15 +82,14 @@
         .preview-container {
             text-align: center;
             margin-bottom: 1.5rem;
-            position: relative;
             background: #00000033;
             border-radius: 2rem;
             padding: 1rem;
+            display: none;
         }
         canvas {
             max-width: 100%;
             border-radius: 1.5rem;
-            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
             background: #1e212c;
         }
         .result-panel {
@@ -102,7 +97,7 @@
             border-radius: 2rem;
             padding: 1.5rem;
             margin-top: 1.2rem;
-            backdrop-filter: blur(4px);
+            display: none;
         }
         .score-section {
             display: flex;
@@ -160,12 +155,6 @@
             color: #f0ede8;
             margin-top: 1rem;
         }
-        .loader {
-            display: none;
-            text-align: center;
-            margin: 0.5rem 0;
-            color: #f5b642;
-        }
         button {
             background: #f5b642;
             border: none;
@@ -181,6 +170,25 @@
             background: #ffcd7e;
             transform: scale(0.98);
         }
+        .loader {
+            background: #00000077;
+            text-align: center;
+            padding: 1rem;
+            border-radius: 2rem;
+            margin: 1rem 0;
+            color: #f5b642;
+            display: none;
+        }
+        .error-message {
+            background: #ff444422;
+            border: 1px solid #ff8888;
+            color: #ffbb99;
+            padding: 0.8rem;
+            border-radius: 1rem;
+            margin: 1rem 0;
+            text-align: center;
+            display: none;
+        }
         .footer {
             font-size: 0.7rem;
             text-align: center;
@@ -193,11 +201,6 @@
             .detail-grid { grid-template-columns: 1fr; }
         }
     </style>
-    <!-- 加载 face-api.js 核心库 -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core@4.2.0/dist/tf-core.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter@4.2.0/dist/tf-converter.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.3/dist/face-landmarks-detection.min.js"></script>
-    <!-- 备用方案：由于 face-api.js 更成熟，改用 face-api.js 方便人脸68点检测，上面 tf 系列用于后续但改用 classic face-api -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 </head>
 <body>
@@ -205,7 +208,7 @@
     <div class="header">
         <h1>🐻 肥爷专业颜值评定</h1>
         <p>洞穿虚假展示面 · <span class="sub">素颜看上限</span> · 高P看底线</p>
-        <p style="font-size:0.7rem; margin-top:6px;">⚡ 基于面部黄金比例 & 5官对称算法 (本地模型)</p>
+        <p style="font-size:0.7rem; margin-top:6px;">🔧 修复卡顿版 | 超时自动报错</p>
     </div>
     <div class="content">
         <div class="upload-area" id="uploadArea">
@@ -213,11 +216,12 @@
             <div class="upload-text">点击上传正脸照片 (无美颜最佳)</div>
             <input type="file" id="fileInput" accept="image/jpeg,image/png,image/jpg">
         </div>
-        <div class="preview-container" id="previewArea" style="display: none;">
+        <div class="preview-container" id="previewArea">
             <canvas id="resultCanvas" width="500" height="400" style="width:100%; height:auto;"></canvas>
         </div>
-        <div class="loader" id="loaderMsg">🧠 脂肪AI正在分析骨骼比例 & 对称性 ... 请稍后</div>
-        <div class="result-panel" id="resultPanel" style="display: none;">
+        <div class="loader" id="loaderMsg">⏳ 正在加载AI模型，请稍等...</div>
+        <div class="error-message" id="errorMsg"></div>
+        <div class="result-panel" id="resultPanel">
             <div class="score-section">
                 <span class="total-score" id="totalScore">--</span>
                 <span class="rank" id="rankTag">等待评定</span>
@@ -228,15 +232,13 @@
                 <div class="detail-item"><div class="detail-label">轮廓对称度</div><div class="detail-value" id="symmetry">-</div></div>
                 <div class="detail-item"><div class="detail-label">唇鼻下颌协调</div><div class="detail-value" id="harmony">-</div></div>
             </div>
-            <div class="comment" id="commentBox">
-                等待上传...
-            </div>
+            <div class="comment" id="commentBox"></div>
             <div style="text-align: right; margin-top: 8px;">
                 <button id="resetBtn">重新评定</button>
             </div>
         </div>
         <div class="footer">
-            ※ 本地AI分析，不上传任何图片 · 仅作娱乐参考，素颜天花板由你定义
+            ※ 本地AI分析，不上传任何图片 · 如卡住请换一张正脸清晰照
         </div>
     </div>
 </div>
@@ -249,10 +251,10 @@
         const previewArea = document.getElementById('previewArea');
         const resultCanvas = document.getElementById('resultCanvas');
         const loaderMsg = document.getElementById('loaderMsg');
+        const errorMsgDiv = document.getElementById('errorMsg');
         const resultPanel = document.getElementById('resultPanel');
         const resetBtn = document.getElementById('resetBtn');
         
-        // 显示结果DOM
         const totalScoreSpan = document.getElementById('totalScore');
         const rankTagSpan = document.getElementById('rankTag');
         const sanTingSpan = document.getElementById('sanTing');
@@ -263,45 +265,66 @@
 
         let modelsLoaded = false;
         let currentImage = null;
+        let detectTimeout = null;
 
-        // 加载 face-api 模型 (轻量化)
-        async function loadModels() {
-            loaderMsg.style.display = 'block';
-            loaderMsg.innerText = '🔥 加载颜值分析核心模型 (人脸检测+68点特征)...';
-            try {
-                // 官方模型地址使用 CDN 镜像
-                const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
-                await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-                await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
-                modelsLoaded = true;
-                loaderMsg.style.display = 'none';
-                console.log("肥爷AI模型就位");
-            } catch(e) {
-                console.error(e);
-                loaderMsg.innerHTML = '❌ 模型加载失败，请检查网络后刷新重试。 (需访问cdn)';
-                setTimeout(()=>{
-                    loaderMsg.style.display = 'none';
+        // 显示错误并自动复位
+        function showError(msg, autoReset = true) {
+            errorMsgDiv.innerText = msg;
+            errorMsgDiv.style.display = 'block';
+            loaderMsg.style.display = 'none';
+            if (autoReset) {
+                setTimeout(() => {
+                    resetAll();
                 }, 3000);
             }
         }
 
-        // 触发上传
-        uploadArea.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', handleImageUpload);
-        resetBtn.addEventListener('click', () => {
-            // 重置界面
+        function hideError() {
+            errorMsgDiv.style.display = 'none';
+        }
+
+        function resetAll() {
+            if (detectTimeout) clearTimeout(detectTimeout);
             fileInput.value = '';
             previewArea.style.display = 'none';
             resultPanel.style.display = 'none';
+            loaderMsg.style.display = 'none';
+            hideError();
             currentImage = null;
+            uploadArea.style.display = 'block';
             const ctx = resultCanvas.getContext('2d');
             ctx.clearRect(0, 0, resultCanvas.width, resultCanvas.height);
-            uploadArea.style.display = 'block';
-        });
+        }
+
+        // 加载模型 (加入超时)
+        async function loadModels() {
+            loaderMsg.style.display = 'block';
+            loaderMsg.innerText = '🔥 加载颜值分析核心模型 (TinyFaceDetector + 68点)...';
+            try {
+                const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights';
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+                ]);
+                modelsLoaded = true;
+                loaderMsg.style.display = 'none';
+                console.log("模型就绪");
+            } catch(e) {
+                console.error(e);
+                showError('❌ 模型加载失败，请检查网络后刷新页面重试。', false);
+                loaderMsg.style.display = 'none';
+            }
+        }
+
+        // 上传图片
+        uploadArea.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', handleImageUpload);
+        resetBtn.addEventListener('click', resetAll);
 
         async function handleImageUpload(e) {
             const file = e.target.files[0];
             if(!file) return;
+            hideError();
             const img = new Image();
             const url = URL.createObjectURL(file);
             img.onload = async () => {
@@ -311,12 +334,12 @@
                 previewArea.style.display = 'block';
                 resultPanel.style.display = 'none';
                 loaderMsg.style.display = 'block';
-                loaderMsg.innerText = '🧐 肥爷鉴定中: 扫描面部特征点...';
+                loaderMsg.innerText = '🧐 肥爷鉴定中: 扫描面部特征点 (请保证正脸清晰)...';
                 
-                // 设定canvas尺寸比例
-                const maxSize = 600;
+                // 设置canvas尺寸
                 let width = img.width;
                 let height = img.height;
+                const maxSize = 600;
                 if(width > maxSize) {
                     height = (height * maxSize) / width;
                     width = maxSize;
@@ -326,31 +349,44 @@
                 const ctx = resultCanvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
                 
-                // 调用 face-api 检测
                 if(!modelsLoaded) {
                     await loadModels();
+                    if(!modelsLoaded) return;
                 }
+                
+                // 设定超时 (5秒)
+                if(detectTimeout) clearTimeout(detectTimeout);
+                detectTimeout = setTimeout(() => {
+                    loaderMsg.style.display = 'none';
+                    showError('⏰ 检测超时：未检测到清晰正脸，请尝试光线充足、无遮挡、正脸平视的照片。', true);
+                }, 8000);
+                
                 try {
-                    const detections = await faceapi.detectSingleFace(resultCanvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+                    // 增加检测参数：提高输入尺寸
+                    const detections = await faceapi.detectSingleFace(resultCanvas, 
+                        new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.5 })
+                    ).withFaceLandmarks();
+                    
+                    clearTimeout(detectTimeout);
+                    
                     if(!detections) {
-                        throw new Error("未检测到清晰正脸，请尝试光线充足、面部无遮挡的照片");
+                        throw new Error("未检测到人脸，请确保照片为正脸且面部清晰可见");
                     }
                     const landmarks = detections.landmarks;
-                    // 绘制关键点
-                    const landmarksArray = landmarks.positions;
-                    drawLandmarks(ctx, landmarksArray);
-                    
-                    // 计算颜值指标 (模拟专业但基于真·几何特征)
+                    drawLandmarks(ctx, landmarks.positions);
                     const scores = calculateBeautyScores(landmarks, width, height);
                     displayResult(scores);
                     loaderMsg.style.display = 'none';
                     resultPanel.style.display = 'block';
                 } catch(err) {
-                    loaderMsg.innerHTML = `⚠️ 评定失败: ${err.message} · 请上传正脸/素颜清晰照`;
-                    setTimeout(()=>{
-                        loaderMsg.style.display = 'none';
-                        resetBtn.click();
-                    }, 2000);
+                    clearTimeout(detectTimeout);
+                    console.error(err);
+                    loaderMsg.style.display = 'none';
+                    let errorText = err.message || "人脸检测失败";
+                    if(errorText.includes("Cannot read properties") || errorText.includes("undefined")) {
+                        errorText = "图片中未检测到完整面部特征点，请尝试更清晰的正脸照";
+                    }
+                    showError(`⚠️ 评定失败: ${errorText} · 建议换一张素颜正脸照`, true);
                 }
             };
             img.src = url;
@@ -366,28 +402,20 @@
                 ctx.fill();
                 ctx.stroke();
             }
-            // 简单连轮廓示意（下巴到脸颊就不做太复杂）
         }
         
-        // 核心颜值算法（基于三庭、眼距、对称）
+        // 颜值算法（与之前一致，但确保健壮）
         function calculateBeautyScores(landmarks, imgW, imgH) {
-            // landmarks.positions 共68点: 0-16 下颌轮廓; 17-21左眉;22-26右眉;27-35鼻梁;36-41左眼;42-47右眼;48-60嘴外;61-67嘴内
             const pts = landmarks.positions;
             if(!pts || pts.length < 68) return getDefaultFallback();
             
-            // 辅助函数: 两点欧氏距离
             const dist = (a,b) => Math.hypot(pts[a].x - pts[b].x, pts[a].y - pts[b].y);
             const getY = (idx) => pts[idx].y;
             const getX = (idx) => pts[idx].x;
             
-            // 三庭指数: 眉心(27)到鼻尖(30) 对比 发际线? 使用眉间(27)到鼻下(33)为上中庭，鼻下(33)到下巴(8)为下庭
-            let nasion = 27;    // 鼻根点
-            let noseTip = 30;   // 鼻尖
-            let noseBottom = 33; // 鼻下点
-            let chin = 8;       // 下巴尖
-            let foreheadY = pts[nasion].y - (pts[nasion].y - pts[19].y)*0.6; //模拟额头发际无法精确，假设上庭用鼻根到眉心上方
-            
-            let upperFace = Math.abs(pts[nasion].y - (pts[19].y-5)); // 粗略上庭
+            // 三庭粗略计算
+            let nasion = 27, noseBottom = 33, chin = 8;
+            let upperFace = Math.abs(pts[nasion].y - (pts[19].y-5));
             let midFace = Math.abs(pts[noseBottom].y - pts[nasion].y);
             let lowerFace = Math.abs(pts[chin].y - pts[noseBottom].y);
             let totalFace = upperFace+midFace+lowerFace;
@@ -397,20 +425,19 @@
                                         - Math.abs((lowerFace/totalFace - idealRatio))*180);
             sanTingScore = Math.min(98, Math.max(50, sanTingScore));
             
-            // 五眼: 眼裂宽度和眼距(左外眼角到右外眼角为5等份) 取左眼外眼角(36左外? 36左外，39左内，42右外，45右内)
-            let leftEyeOuter = 36, leftEyeInner = 39;
-            let rightEyeInner = 42, rightEyeOuter = 45;
+            // 五眼
+            let leftEyeOuter = 36, leftEyeInner = 39, rightEyeInner = 42, rightEyeOuter = 45;
             let eyeWidthL = dist(leftEyeOuter, leftEyeInner);
             let eyeWidthR = dist(rightEyeInner, rightEyeOuter);
             let interEyeDist = dist(leftEyeInner, rightEyeInner);
-            let faceWidth = dist(0, 16); // 轮廓宽度
-            let idealEyeWidth = faceWidth/5; // 理论单眼宽占1/5
+            let faceWidth = dist(0, 16);
+            let idealEyeWidth = faceWidth/5;
             let eyeRatioScore = 100 - Math.abs((eyeWidthL+eyeWidthR)/2 / idealEyeWidth -1)*90;
             let interEyeRatio = 100 - Math.abs(interEyeDist / idealEyeWidth - 1)*70;
             let wuYanScore = (eyeRatioScore*0.6 + interEyeRatio*0.4);
             wuYanScore = Math.min(99, Math.max(45, wuYanScore));
             
-            // 对称度: 左眼右眼关键点坐标差异, 左嘴角(48) 右嘴角(54)对称性
+            // 对称度
             let leftEyeCenterX = (getX(36)+getX(39))/2, rightEyeCenterX = (getX(42)+getX(45))/2;
             let eyeSym = 100 - Math.abs((leftEyeCenterX - rightEyeCenterX) / (faceWidth/4))*80;
             let mouthLeft = pts[48], mouthRight=pts[54];
@@ -419,41 +446,33 @@
             let symmetryScore = (eyeSym*0.5 + mouthSym*0.3 + jawSym*0.2);
             symmetryScore = Math.min(98, Math.max(40, symmetryScore));
             
-            // 唇鼻下颌协调: 人中+颌面角度估算,鼻唇角等
-            let noseTipY = pts[30].y, upperLipY = pts[51].y;
-            let philtrumLength = Math.abs(upperLipY - noseBottom);
-            let lowerLipY = pts[57].y;
-            let chinLength = Math.abs(lowerLipY - pts[8].y);
+            // 唇鼻协调
+            let noseBottomY = pts[33].y, upperLipY = pts[51].y;
+            let philtrumLength = Math.abs(upperLipY - noseBottomY);
+            let lowerLipY = pts[57].y, chinY = pts[8].y;
+            let chinLength = Math.abs(lowerLipY - chinY);
             let lipRatio = 100 - Math.abs(philtrumLength/chinLength - 0.8)*100;
             let harmonyScore = (sanTingScore*0.3 + wuYanScore*0.3 + symmetryScore*0.2 + lipRatio*0.2);
             harmonyScore = Math.min(99, harmonyScore);
             
-            // 综合总分: 权重自定义
             let finalScore = (sanTingScore*0.25 + wuYanScore*0.3 + symmetryScore*0.25 + harmonyScore*0.2);
             finalScore = Math.floor(Math.min(99.5, Math.max(35, finalScore)));
             
-            // 评语&上下限模拟
-            let comment = "";
-            let rank = "";
-            if(finalScore >= 92) { rank = "仙品 · 素颜天花板"; comment = "骨相皮相俱佳，三庭五眼接近黄金分割。建议保持自然，高P反而拉低辨识度。";}
-            else if(finalScore >= 85) { rank = "神颜预备役"; comment = "上镜优势明显，素颜状态能打。微调睡姿与神态即可突破90+。";}
-            else if(finalScore >= 78) { rank = "清秀佳人/才子"; comment = "五官和谐耐看，注意表情管理与发型修饰，瞬间提升一个段位。";}
-            else if(finalScore >= 68) { rank = "氛围潜力股"; comment = "特色明显，找到合适的风格（妆造/角度）能掩盖微小不对称。";}
-            else { rank = "凡人璞玉"; comment = "面部比例有调整空间，但自信与气场才是终极滤镜。肥爷提醒：健康自然即是高级。";}
-            
-            let sanTingFixed = Math.round(sanTingScore);
-            let wuYanFixed = Math.round(wuYanScore);
-            let symFixed = Math.round(symmetryScore);
-            let harmFixed = Math.round(harmonyScore);
+            let rank = "", comment = "";
+            if(finalScore >= 92) { rank = "仙品 · 素颜天花板"; comment = "骨相皮相俱佳，三庭五眼接近黄金分割。";}
+            else if(finalScore >= 85) { rank = "神颜预备役"; comment = "上镜优势明显，素颜状态能打。";}
+            else if(finalScore >= 78) { rank = "清秀佳人/才子"; comment = "五官和谐耐看，注意表情管理。";}
+            else if(finalScore >= 68) { rank = "氛围潜力股"; comment = "特色明显，找到合适的风格能大幅提升。";}
+            else { rank = "凡人璞玉"; comment = "面部比例有调整空间，自信才是终极滤镜。";}
             
             return {
                 total: finalScore,
                 rank: rank,
-                sanTing: sanTingFixed,
-                wuYan: wuYanFixed,
-                symmetry: symFixed,
-                harmony: harmFixed,
-                comment: comment + " 【素颜上限 "+Math.min(99, finalScore+6)+" · 高P底线 "+Math.max(45, finalScore-12)+"】"
+                sanTing: Math.round(sanTingScore),
+                wuYan: Math.round(wuYanScore),
+                symmetry: Math.round(symmetryScore),
+                harmony: Math.round(harmonyScore),
+                comment: comment + ` 【素颜上限 ${Math.min(99, finalScore+6)} · 高P底线 ${Math.max(45, finalScore-12)}】`
             };
         }
         
@@ -465,7 +484,7 @@
                 wuYan: 68,
                 symmetry: 71,
                 harmony: 73,
-                comment: "面部特征点未能完全捕获，请正脸、平视镜头重试。肥爷赠标准分72。"
+                comment: "面部特征点未完全捕获，请正脸平视重试。"
             };
         }
         
@@ -479,7 +498,6 @@
             commentBoxDiv.innerHTML = `💬 ${scores.comment}`;
         }
         
-        // 预加载模型
         loadModels();
     })();
 </script>
