@@ -3,40 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>肥爷专业颜值评定 - 修复版</title>
+  <title>肥爷专业颜值评定 - 最终修复版</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f0f2f5; }
-    .card { background: white; border-radius: 32px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); }
-    .upload-area { border: 3px dashed #e5e5e5; transition: all 0.3s ease; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f4f7; }
+    .card { background: white; border-radius: 32px; box-shadow: 0 25px 60px rgba(0,0,0,0.1); }
+    .upload-area { border: 3px dashed #ddd; transition: 0.3s; }
+    .upload-area:hover { border-color: #ff9500; background: #fffcf5; }
     .loader { border-top-color: #ff9500; animation: spin 1s linear infinite; }
     @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="min-h-screen py-12 px-4">
-  <div class="max-w-xl mx-auto text-center">
-    <h1 class="text-4xl font-bold mb-10">肥爷专业颜值评定</h1>
-    
-    <div class="card p-8 text-left">
+<body class="min-h-screen py-10 px-4">
+  <div class="max-w-xl mx-auto">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-gray-900">肥爷专业颜值评定</h1>
+      <p class="text-[#ff9500] font-medium mt-2">Gemini 1.5 Flash 强力驱动</p>
+    </div>
+
+    <div class="card p-8">
+      <!-- 上传初始界面 -->
       <div id="uploadArea" class="upload-area rounded-3xl h-72 flex flex-col items-center justify-center cursor-pointer">
-        <i class="fa-solid fa-camera-retro text-6xl text-gray-300 mb-4"></i>
-        <p class="text-xl font-medium text-gray-700">点击上传照片</p>
+        <i class="fa-solid fa-cloud-arrow-up text-5xl text-gray-300 mb-4"></i>
+        <p class="text-xl font-bold text-gray-700">选择或拖入照片</p>
         <input type="file" id="fileInput" accept="image/*" class="hidden">
       </div>
 
-      <div id="resultArea" class="hidden">
-        <div class="flex justify-center mb-6"><img id="preview" class="max-h-80 rounded-2xl shadow-lg"></div>
-        <div id="status" class="text-center py-4">
-            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-100 h-12 w-12 mx-auto mb-4"></div>
-            <p>正在请求 Google AI 节点...</p>
+      <!-- 结果/加载界面 -->
+      <div id="resultArea" class="hidden text-center">
+        <div class="flex justify-center mb-6">
+          <img id="preview" class="max-h-72 rounded-2xl shadow-md object-cover">
         </div>
-        <div id="scoreDisplay" class="hidden text-center">
-          <div id="finalScore" class="text-7xl font-black text-[#ff9500] mb-2">0.0</div>
-          <div id="finalTier" class="text-2xl font-bold text-gray-800 mb-4">---</div>
-          <div id="finalReason" class="bg-gray-50 p-4 rounded-2xl italic text-gray-600">---</div>
+        
+        <div id="loadingStatus">
+          <div class="loader rounded-full border-4 border-gray-100 h-10 w-10 mx-auto mb-4"></div>
+          <p class="text-gray-500">肥爷正在毒舌鉴定中...</p>
         </div>
-        <button onclick="location.reload()" class="mt-8 w-full py-4 bg-black text-white rounded-2xl font-bold">测下一张</button>
+
+        <div id="scoreBox" class="hidden">
+          <div id="score" class="text-7xl font-black text-[#ff9500] mb-1">0.0</div>
+          <div id="tier" class="text-2xl font-bold text-gray-800 mb-4">加载中...</div>
+          <div class="bg-gray-50 p-4 rounded-2xl text-gray-600 italic text-sm border-l-4 border-[#ff9500]" id="reason">评价中...</div>
+        </div>
+
+        <button onclick="location.reload()" class="mt-8 w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-black transition">
+          测下一张
+        </button>
       </div>
     </div>
   </div>
@@ -45,60 +58,60 @@
     // 使用你截图里的 Key
     const API_KEY = "AIzaSyCYIUCL34jstGhx3rzR7Vre7uDbpsqJH1g";
 
-    async function analyzeImage(base64Data) {
-      // 【关键修复点】改用 v1 稳定版路径，这是最不容易报错的路径
+    async function analyzeImage(base64) {
+      // 核心修正：采用最稳定的 v1 路径，完全匹配 Gemini 1.5 Flash
       const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-
-      const payload = {
-        contents: [{
-          parts: [
-            { text: "你是一位极其严苛的亚洲颜值鉴定专家。请对这张照片进行0-10打分，并返回JSON格式：{\"score\": 6.5, \"tier\": \"等级\", \"reason\": \"评价\"}。严禁返回任何Markdown格式。" },
-            { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-          ]
-        }]
-      };
 
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: "你是一位严苛的颜值鉴定专家。请对照片打分(0-10)并简短毒舌评价。必须只返回如下格式的JSON：{\"score\": 6.5, \"tier\": \"路人甲\", \"reason\": \"评价内容\"}"
+            }, {
+              inline_data: { mime_type: "image/jpeg", data: base64 }
+            }]
+          }]
+        })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error?.message || "服务器拒绝请求");
+      if (!response.ok) throw new Error(data.error?.message || "请求失败");
 
-      // 提取返回内容
-      const text = data.candidates[0].content.parts[0].text;
-      // 容错处理：有时候AI会带上 ```json 标签
-      const jsonStr = text.replace(/
-```json|```/g, "").trim();
-      return JSON.parse(jsonStr);
+      // 提取结果并清洗 JSON
+      let resultText = data.candidates[0].content.parts[0].text;
+      resultText = resultText.replace(/```json|
+```/g, "").trim();
+      return JSON.parse(resultText);
     }
 
     const fileInput = document.getElementById('fileInput');
     const uploadArea = document.getElementById('uploadArea');
 
     uploadArea.onclick = () => fileInput.click();
+
     fileInput.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
       const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64 = event.target.result.split(',')[1];
-        document.getElementById('preview').src = event.target.result;
+      reader.onload = async (ev) => {
+        const base64 = ev.target.result.split(',')[1];
+        document.getElementById('preview').src = ev.target.result;
         document.getElementById('uploadArea').classList.add('hidden');
         document.getElementById('resultArea').classList.remove('hidden');
 
         try {
-          const result = await analyzeImage(base64);
-          document.getElementById('status').classList.add('hidden');
-          document.getElementById('scoreDisplay').classList.remove('hidden');
-          document.getElementById('finalScore').innerText = result.score;
-          document.getElementById('finalTier').innerText = result.tier;
-          document.getElementById('finalReason').innerText = `"${result.reason}"`;
+          const res = await analyzeImage(base64);
+          document.getElementById('loadingStatus').classList.add('hidden');
+          document.getElementById('scoreBox').classList.remove('hidden');
+          
+          document.getElementById('score').innerText = res.score;
+          document.getElementById('tier').innerText = res.tier;
+          document.getElementById('reason').innerText = `"${res.reason}"`;
         } catch (err) {
-          document.getElementById('status').innerHTML = `<p class="text-red-500 font-bold">鉴定失败</p><p class="text-xs text-gray-400">${err.message}</p>`;
+          document.getElementById('loadingStatus').innerHTML = `<p class="text-red-500 font-bold">鉴定出错</p><p class="text-xs text-gray-400 mt-1">${err.message}</p>`;
         }
       };
       reader.readAsDataURL(file);
