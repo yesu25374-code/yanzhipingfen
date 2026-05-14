@@ -46,12 +46,14 @@
   <script>
     const API_KEY = "SFZAf7IRd2JE8coJ6t0gDWI2";
     const SECRET_KEY = "929KQWuNSm5FJscMpvSTmEvFal7nNiJp";
+    const PROXY = "https://corsproxy.io/?";
 
     let accessToken = null;
 
     async function getToken() {
       if (accessToken) return accessToken;
-      const res = await fetch(`https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${API_KEY}&client_secret=${SECRET_KEY}`);
+      const url = `https://aip.baidubce.com/oauth/2.0/token?grant_type=client_credentials&client_id=${API_KEY}&client_secret=${SECRET_KEY}`;
+      const res = await fetch(PROXY + encodeURIComponent(url));
       const data = await res.json();
       accessToken = data.access_token;
       return accessToken;
@@ -59,7 +61,8 @@
 
     async function analyzeWithBaidu(base64) {
       const token = await getToken();
-      const response = await fetch(`https://aip.baidubce.com/rest/2.0/face/v3/detect?access_token=${token}`, {
+      const apiUrl = `https://aip.baidubce.com/rest/2.0/face/v3/detect?access_token=${token}`;
+      const response = await fetch(PROXY + encodeURIComponent(apiUrl), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,21 +76,15 @@
       return data.result.face_list[0];
     }
 
-    // 新映射规则：原始分80以上直接7+
     function getFinalScore(b) {
-      let score;
-      if (b >= 95) score = 8.6 + (b - 95) * 0.12;
-      else if (b >= 90) score = 8.1 + (b - 90) * 0.1;
-      else if (b >= 85) score = 7.6 + (b - 85) * 0.1;
-      else if (b >= 80) score = 7.0 + (b - 80) * 0.12;
-      else if (b >= 75) score = 6.5 + (b - 75) * 0.1;
-      else if (b >= 70) score = 6.0 + (b - 70) * 0.1;
-      else if (b >= 60) score = 5.2 + (b - 60) * 0.08;
-      else if (b >= 50) score = 4.5 + (b - 50) * 0.07;
-      else score = 3.8 + (b / 50) * 0.8;
-
-      score = Math.min(9.2, Math.max(3.5, Math.round(score * 10) / 10));
-      return score;
+      if (b >= 95) return 8.8;
+      if (b >= 90) return 8.3;
+      if (b >= 85) return 7.8;
+      if (b >= 80) return 7.2;
+      if (b >= 75) return 6.7;
+      if (b >= 70) return 6.2;
+      if (b >= 60) return 5.5;
+      return Math.max(4.0, Math.round((b / 100) * 5.5 * 10) / 10);
     }
 
     async function handleFile(file) {
@@ -96,7 +93,7 @@
         document.getElementById('preview').src = e.target.result;
         document.getElementById('uploadArea').classList.add('hidden');
         document.getElementById('resultArea').classList.remove('hidden');
-        document.getElementById('message').innerHTML = '正在调用AI大模型数据库...';
+        document.getElementById('message').innerHTML = '正在调用AI...';
 
         try {
           const base64 = e.target.result.split(',')[1];
