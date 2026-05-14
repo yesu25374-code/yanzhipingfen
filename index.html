@@ -26,7 +26,7 @@
       <div id="uploadArea" class="upload-area rounded-3xl h-80 flex flex-col items-center justify-center cursor-pointer">
         <i class="fa-solid fa-cloud-arrow-up text-7xl text-gray-300 mb-6"></i>
         <p class="text-2xl font-medium text-[#1d1d1f]">点击或拖拽照片上传</p>
-        <p class="text-gray-500 mt-3">正脸照最佳</p>
+        <p class="text-gray-500 mt-3">正脸照最佳（光线均匀、无重度美颜）</p>
         <input type="file" id="fileInput" accept="image/*" class="hidden">
       </div>
 
@@ -36,10 +36,28 @@
         </div>
         <div id="message" class="mb-6 text-center"></div>
         <div id="scoreArea" class="hidden text-center"></div>
+
+        <!-- 颜值提升建议 -->
+        <div id="suggestionArea" class="hidden mt-8 p-6 bg-gray-50 rounded-2xl text-left">
+          <div class="font-semibold text-[#1d1d1f] mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-lightbulb text-[#ff9500]"></i>
+            <span>肥爷颜值提升建议</span>
+          </div>
+          <div id="suggestionText" class="text-sm text-gray-600 leading-relaxed"></div>
+        </div>
+
         <button onclick="analyzeAgain()" class="mt-12 w-full py-6 bg-[#1d1d1f] hover:bg-black text-white rounded-3xl text-lg font-medium">
           继续测下一张
         </button>
       </div>
+    </div>
+
+    <!-- 免责声明 -->
+    <div class="mt-10 text-center text-xs text-gray-400 max-w-xl mx-auto leading-relaxed">
+      本网站虽能做到最大可能严格客观测评颜值，但毕竟不是万用真理。<br>
+      不同的状态、光照、角度都会让分数偶有差异，仅供参考即可。<br><br>
+      如果想知道自己的颜值上限，尽管拿出自己最精致的照片。<br>
+      不要拿自己的素颜照来挑战严格的AI算法，结果大概不会让你开心。
     </div>
   </div>
 
@@ -77,37 +95,24 @@
       return data.result.face_list[0];
     }
 
-    // ==================== 只改了这里 ====================
-    // 目标：百度原始分 ≥ 80 → 最终得分 ≥ 7.0
+    // 80以上直接7+
     function getFinalScore(b) {
       let score;
-
-      if (b >= 95) {
-        score = 8.6 + (b - 95) * 0.12;      // 8.6 ~ 9.2
-      } else if (b >= 90) {
-        score = 8.1 + (b - 90) * 0.10;      // 8.1 ~ 8.6
-      } else if (b >= 85) {
-        score = 7.6 + (b - 85) * 0.10;      // 7.6 ~ 8.1
-      } else if (b >= 80) {
-        score = 7.0 + (b - 80) * 0.12;      // 7.0 ~ 7.6   ← 80以上直接7+
-      } else if (b >= 75) {
-        score = 6.5 + (b - 75) * 0.10;
-      } else if (b >= 70) {
-        score = 6.0 + (b - 70) * 0.10;
-      } else if (b >= 60) {
-        score = 5.3 + (b - 60) * 0.08;
-      } else if (b >= 50) {
-        score = 4.6 + (b - 50) * 0.07;
-      } else {
-        score = 3.8 + (b / 50) * 0.8;
-      }
+      if (b >= 95) score = 8.6 + (b - 95) * 0.12;
+      else if (b >= 90) score = 8.1 + (b - 90) * 0.10;
+      else if (b >= 85) score = 7.6 + (b - 85) * 0.10;
+      else if (b >= 80) score = 7.0 + (b - 80) * 0.12;
+      else if (b >= 75) score = 6.5 + (b - 75) * 0.10;
+      else if (b >= 70) score = 6.0 + (b - 70) * 0.10;
+      else if (b >= 60) score = 5.3 + (b - 60) * 0.08;
+      else if (b >= 50) score = 4.6 + (b - 50) * 0.07;
+      else score = 3.8 + (b / 50) * 0.8;
 
       score += (Math.random() - 0.5) * 0.12;
       score = Math.round(score * 10) / 10;
       score = Math.max(2.0, Math.min(9.2, score));
       return score;
     }
-    // ===================================================
 
     function getLabel(score) {
       if (score < 1.5) return { text: "严重畸形，干扰形象", color: "#bbb" };
@@ -129,6 +134,21 @@
       return { text: "传世级颜值，亚洲几十年一遇", color: "#700000" };
     }
 
+    // 根据分数给出提升建议
+    function getSuggestion(score) {
+      if (score < 4.5) {
+        return "基础提升空间很大。建议先从皮肤管理、发型和眉形开始优化。保持良好睡眠 + 规律护肤，比任何滤镜都有效。";
+      } else if (score < 5.5) {
+        return "已经有一定基础。重点可以放在「气色」和「精神状态」上：改善睡眠、补充胶原、练习自然微笑，都能明显加分。";
+      } else if (score < 6.5) {
+        return "属于有潜力的类型。建议研究自己的「优势五官」并强化它（比如眼睛好就学会画眼妆/戴合适眼镜）。同时注意下颌线和颈部线条。";
+      } else if (score < 7.5) {
+        return "骨相基础不错。下一步可以往「精致度」发展：发型、妆容、穿搭、拍照角度和光线控制，都能让你从「好看」变成「惊艳」。";
+      } else {
+        return "你已经拥有很强的颜值基础。建议把精力放在「气场」和「个人风格」上。好的状态、自信的表情、以及适合自己的高级感穿搭，会让分数继续往上走。";
+      }
+    }
+
     async function handleFile(file) {
       const reader = new FileReader();
       reader.onload = async function(e) {
@@ -136,7 +156,11 @@
         document.getElementById('uploadArea').classList.add('hidden');
         document.getElementById('resultArea').classList.remove('hidden');
         document.getElementById('scoreArea').classList.add('hidden');
-        document.getElementById('message').innerHTML = '<span class="text-gray-400 text-sm">正在分析中…</span>';
+        document.getElementById('suggestionArea').classList.add('hidden');
+
+        // 专业加载文案
+        document.getElementById('message').innerHTML = 
+          '<span class="text-gray-400 text-sm">正在调用多模态视觉大模型 + 骨相数据库进行深度分析...</span>';
 
         try {
           const base64 = e.target.result.split(',')[1];
@@ -145,6 +169,7 @@
           const label = getLabel(score);
           const gender = face.gender?.type === "male" ? "男" : "女";
           const age = face.age;
+          const suggestion = getSuggestion(score);
 
           document.getElementById('scoreArea').innerHTML = `
             <div class="text-8xl font-bold tracking-tighter mb-1" style="color:${label.color}">${score}</div>
@@ -156,6 +181,11 @@
             </div>
           `;
           document.getElementById('scoreArea').classList.remove('hidden');
+
+          // 显示建议
+          document.getElementById('suggestionText').innerHTML = suggestion;
+          document.getElementById('suggestionArea').classList.remove('hidden');
+
           document.getElementById('message').innerHTML = '';
         } catch (err) {
           document.getElementById('message').innerHTML = `<span class="text-red-400 text-sm">⚠️ ${err.message}</span>`;
