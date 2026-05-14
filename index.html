@@ -39,7 +39,7 @@
         
         <div id="loading" class="text-center py-4">
           <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-100 h-12 w-12 mx-auto mb-4"></div>
-          <p class="text-gray-500 font-medium">肥爷正在毒舌分析中...</p>
+          <p class="text-gray-500 font-medium">肥爷正在分析...（需保持网络通畅）</p>
         </div>
 
         <div id="scoreDisplay" class="hidden text-center">
@@ -51,28 +51,29 @@
         </div>
 
         <button onclick="location.reload()" class="mt-8 w-full py-4 bg-gray-900 hover:bg-black text-white rounded-2xl text-lg font-bold transition">
-          重新测一张
+          继续测下一张
         </button>
       </div>
     </div>
-    <p class="text-center text-gray-400 text-xs mt-8">注：API请求需网络环境支持访问 Google 服务</p>
+    <p class="text-center text-gray-400 text-xs mt-8">注意：如果一直加载中，请检查是否已开启科学上网</p>
   </div>
 
   <script>
-    // 已根据你的截图更新 API Key
+    // 你的 API Key
     const API_KEY = "AIzaSyCYIUCL34jstGhx3rzR7Vre7uDbpsqJH1g";
 
     async function analyzeImage(base64Data) {
+      // 针对 v1beta 修正的完整 URL
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
       const prompt = `你是一位极度毒舌、审美严苛的亚洲颜值鉴定专家。
       请分析照片中的人物打分并给出评价：
-      1. 分数(score): 0.0-10.0，保留一位小数。极难拿到8分以上。
+      1. 分数(score): 0.0-10.0，保留一位小数。
       2. 等级(tier): 如"路人乙"、"氛围感美女"、"骨相神颜"等。
       3. 理由(reason): 犀利、直接，指出骨相或五官的优缺点，不要客套。
       
-      请必须只返回 JSON 格式，不要有任何 Markdown 标记，格式如下：
+      必须只返回 JSON 格式，不要有任何 Markdown 标记：
       {"score": 6.5, "tier": "xxx", "reason": "xxx"}`;
-
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -90,8 +91,17 @@
         })
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error.message || "请求失败");
+      }
+
       const resData = await response.json();
-      if (resData.error) throw new Error(resData.error.message);
+      
+      // 安全获取返回文本
+      if (!resData.candidates || !resData.candidates[0].content) {
+        throw new Error("AI 未能生成有效的分析结果");
+      }
       
       const textResult = resData.candidates[0].content.parts[0].text;
       return JSON.parse(textResult);
@@ -106,13 +116,14 @@
       const file = e.target.files[0];
       if (!file) return;
 
-      // 预览并切换界面
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64 = event.target.result.split(',')[1];
         document.getElementById('preview').src = event.target.result;
         document.getElementById('uploadArea').classList.add('hidden');
         document.getElementById('resultArea').classList.remove('hidden');
+        document.getElementById('loading').classList.remove('hidden');
+        document.getElementById('scoreDisplay').classList.add('hidden');
 
         try {
           const result = await analyzeImage(base64);
@@ -124,11 +135,30 @@
           document.getElementById('finalTier').innerText = result.tier;
           document.getElementById('finalReason').innerText = `"${result.reason}"`;
         } catch (err) {
-          alert("鉴定失败: " + err.message + "\n请检查网络是否能访问Google API");
-          console.error(err);
+          document.getElementById('loading').innerHTML = `
+            <div class="text-red-500 p-4">
+              <i class="fa-solid fa-circle-exclamation text-3xl mb-2"></i>
+              <p class="font-bold">分析出错</p>
+              <p class="text-xs mt-1">${err.message}</p>
+            </div>
+          `;
+          console.error("鉴定失败原因:", err);
         }
       };
       reader.readAsDataURL(file);
+    };
+
+    // 拖拽上传支持
+    uploadArea.ondragover = (e) => { e.preventDefault(); uploadArea.style.borderColor = "#ff9500"; };
+    uploadArea.ondragleave = () => { uploadArea.style.borderColor = "#e5e5e5"; };
+    uploadArea.ondrop = (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file) {
+        fileInput.files = e.dataTransfer.files;
+        const event = new Event('change');
+        fileInput.dispatchEvent(event);
+      }
     };
   </script>
 </body>
