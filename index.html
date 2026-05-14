@@ -68,7 +68,7 @@
         body: JSON.stringify({
           image: base64,
           image_type: "BASE64",
-          face_field: "beauty,age,gender,face_probability,face_shape"
+          face_field: "beauty,age,gender"
         })
       });
       const data = await response.json();
@@ -77,73 +77,83 @@
       return data.result.face_list[0];
     }
 
-    // 核心评分算法：严格映射到肥爷标准
-    function getFinalScore(baiduBeauty) {
-      const b = baiduBeauty; // 0-100
+    // 基于正态分布图的精确映射
+    // 百度分的中位数约55，对应肥爷4.5
+    // 关键锚点：
+    // 百度55 → 4.5（中位数，普通大众）
+    // 百度68 → 5.5（前30%，有明显优势）
+    // 百度76 → 6.0（前5%，入门帅哥美女）
+    // 百度82 → 6.5（前2%，系花系草）
+    // 百度87 → 6.8（前1%，小网红）
+    // 百度91 → 7.0（前0.1%，万里挑一）
+    // 百度94 → 7.5（前0.05%，顶流idol）
+    // 百度97 → 8.5（接近十万分之一）
+    // 百度99+ → 9.0（传世级）
 
+    function getFinalScore(b) {
       let score;
 
-      if (b < 20) {
-        // 百度0-20 → 肥爷1.0-2.5（完全普通，有明显缺陷）
-        score = 1.0 + (b / 20) * 1.5;
-      } else if (b < 35) {
-        // 百度20-35 → 肥爷2.5-3.5（普通大众）
-        score = 2.5 + ((b - 20) / 15) * 1.0;
-      } else if (b < 50) {
-        // 百度35-50 → 肥爷3.5-4.5（普通偏上，班里中等）
-        score = 3.5 + ((b - 35) / 15) * 1.0;
-      } else if (b < 62) {
-        // 百度50-62 → 肥爷4.5-5.2（班草班花级，有吸引力但有硬伤）
-        score = 4.5 + ((b - 50) / 12) * 0.7;
-      } else if (b < 72) {
-        // 百度62-72 → 肥爷5.2-6.0（系花系草候选，街上少见）
-        score = 5.2 + ((b - 62) / 10) * 0.8;
-      } else if (b < 82) {
-        // 百度72-82 → 肥爷6.0-6.5（小网红、三线明星舒适区）
-        score = 6.0 + ((b - 72) / 10) * 0.5;
-      } else if (b < 90) {
-        // 百度82-90 → 肥爷6.5-7.0（头部网红、颜值明星）
-        score = 6.5 + ((b - 82) / 8) * 0.5;
+      if (b < 10) {
+        score = 1.0 + (b / 10) * 0.5;            // 1.0–1.5  严重畸形
+      } else if (b < 20) {
+        score = 1.5 + ((b-10)/10) * 0.5;         // 1.5–2.0  重大负分项
+      } else if (b < 30) {
+        score = 2.0 + ((b-20)/10) * 0.5;         // 2.0–2.5  明显发育异常
+      } else if (b < 38) {
+        score = 2.5 + ((b-30)/8) * 0.5;          // 2.5–3.0  严重不利/多发缺陷
+      } else if (b < 46) {
+        score = 3.0 + ((b-38)/8) * 0.5;          // 3.0–3.5  显著低于平均
+      } else if (b < 53) {
+        score = 3.5 + ((b-46)/7) * 0.7;          // 3.5–4.2  明显低于平均（服务行业基层）
+      } else if (b < 58) {
+        score = 4.2 + ((b-53)/5) * 0.5;          // 4.2–4.7  接近中位数（普通大众密集区）
+      } else if (b < 63) {
+        score = 4.7 + ((b-58)/5) * 0.5;          // 4.7–5.2  中位数偏上
+      } else if (b < 69) {
+        score = 5.2 + ((b-63)/6) * 0.5;          // 5.2–5.7  前30%，有优势
+      } else if (b < 74) {
+        score = 5.7 + ((b-69)/5) * 0.4;          // 5.7–6.1  前5%，入门帅哥美女
+      } else if (b < 79) {
+        score = 6.1 + ((b-74)/5) * 0.3;          // 6.1–6.4  前2%，系花系草
+      } else if (b < 83) {
+        score = 6.4 + ((b-79)/4) * 0.3;          // 6.4–6.7  前1%，小网红/主播
+      } else if (b < 87) {
+        score = 6.7 + ((b-83)/4) * 0.35;         // 6.7–7.05 前0.1%，颜霸（吴世勋区间）
+      } else if (b < 91) {
+        score = 7.05 + ((b-87)/4) * 0.45;        // 7.05–7.5 前0.05%，顶流idol
       } else if (b < 95) {
-        // 百度90-95 → 肥爷7.0-7.8（颜霸级，街上几乎不存在）
-        score = 7.0 + ((b - 90) / 5) * 0.8;
+        score = 7.5 + ((b-91)/4) * 0.7;          // 7.5–8.2  娱乐圈天花板（范冰冰区间）
       } else if (b < 98) {
-        // 百度95-98 → 肥爷7.8-8.5（娱乐圈顶级）
-        score = 7.8 + ((b - 95) / 3) * 0.7;
+        score = 8.2 + ((b-95)/3) * 0.5;          // 8.2–8.7  十万分之一
       } else {
-        // 百度98-100 → 肥爷8.5-9.2（亚洲几十年一遇）
-        score = 8.5 + ((b - 98) / 2) * 0.7;
+        score = 8.7 + ((b-98)/2) * 0.5;          // 8.7–9.2  传世级（布兰顿螺丝/金城武）
       }
 
-      // 随机浮动 ±0.2，体现评分的人性化，避免太机械
-      const jitter = (Math.random() - 0.5) * 0.4;
-      score = score + jitter;
-
-      // 素人天花板限制：正常照片很难突破7.0
-      // 只有极高的百度分（>92）才可能过7
-      if (b < 92 && score > 6.9) score = 6.9;
-      if (b < 85 && score > 6.4) score = 6.4;
-      if (b < 75 && score > 6.0) score = 6.0;
-
-      // 精确到0.1
+      // 微小随机浮动 ±0.1
+      score += (Math.random() - 0.5) * 0.2;
       score = Math.round(score * 10) / 10;
       score = Math.max(1.0, Math.min(9.2, score));
       return score;
     }
 
     function getLabel(score) {
-      if (score < 3) return { text: "五官较为平凡", color: "#999" };
-      if (score < 4) return { text: "普通大众颜值", color: "#888" };
-      if (score < 4.5) return { text: "路人中等偏上", color: "#666" };
-      if (score < 5) return { text: "班级前30%，有点小吸引力", color: "#555" };
-      if (score < 5.5) return { text: "班草/班花候选，但有硬伤", color: "#ff9500" };
-      if (score < 6) return { text: "系花系草级，两性市场占优", color: "#ff9500" };
-      if (score < 6.5) return { text: "小网红/三线明星舒适区", color: "#ff7700" };
-      if (score < 7) return { text: "头部网红/颜值明星级", color: "#ff6600" };
-      if (score < 7.5) return { text: "颜霸级，街上几乎见不到", color: "#e05000" };
-      if (score < 8) return { text: "娱乐圈顶级颜值", color: "#c04000" };
-      if (score < 8.5) return { text: "亚洲顶级，十年一遇", color: "#a03000" };
-      return { text: "传世级颜值，亚洲几十年一遇", color: "#801000" };
+      if (score < 1.5) return { text: "严重畸形，干扰形象", color: "#bbb" };
+      if (score < 2.0) return { text: "重大负分项，后天难以弥补", color: "#aaa" };
+      if (score < 2.5) return { text: "明显发育问题（如低颌面）", color: "#999" };
+      if (score < 3.0) return { text: "严重不利，多发性缺陷", color: "#888" };
+      if (score < 3.5) return { text: "显著低于平均水平", color: "#777" };
+      if (score < 4.2) return { text: "明显低于平均（服务行业基层常见）", color: "#666" };
+      if (score < 4.8) return { text: "中位数区间，普通大众密集区", color: "#555" };
+      if (score < 5.3) return { text: "中等偏上，偶有回头率", color: "#ff9500" };
+      if (score < 5.7) return { text: "前30%，两性市场有明显优势", color: "#ff8800" };
+      if (score < 6.2) return { text: "前5%，入门级帅哥美女", color: "#ff7700" };
+      if (score < 6.5) return { text: "前2%，系花/系草水平", color: "#ff6600" };
+      if (score < 6.9) return { text: "前1%，小网红/主播的颜值门槛", color: "#f05500" };
+      if (score < 7.2) return { text: "前0.1%，颜霸级，街上几乎不存在", color: "#e04400" };
+      if (score < 7.6) return { text: "前0.05%，顶流idol段位", color: "#c83300" };
+      if (score < 8.2) return { text: "娱乐圈天花板颜值", color: "#b02000" };
+      if (score < 8.7) return { text: "接近十万分之一，亚洲级别稀缺", color: "#901000" };
+      return { text: "传世级颜值，亚洲几十年一遇", color: "#700000" };
     }
 
     async function handleFile(file) {
@@ -165,12 +175,11 @@
 
           document.getElementById('scoreArea').innerHTML = `
             <div class="text-8xl font-bold tracking-tighter mb-1" style="color:${label.color}">${score}</div>
-            <div class="text-base font-medium mb-1" style="color:${label.color}">${label.text}</div>
+            <div class="text-base font-medium mb-2" style="color:${label.color}">${label.text}</div>
             <div class="text-sm text-gray-400 mb-6">肥爷综合评分（满分 9.2）</div>
             <div class="flex justify-center gap-8 text-sm text-gray-400">
               <span>性别：${gender}</span>
               <span>年龄：约 ${age} 岁</span>
-              <span></span>
             </div>
           `;
           document.getElementById('scoreArea').classList.remove('hidden');
