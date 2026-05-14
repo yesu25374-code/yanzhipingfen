@@ -95,24 +95,37 @@
       return data.result.face_list[0];
     }
 
-    // 80以上直接7+
+    // ==================== 稳定版映射（已移除随机）====================
+    // 同一张照片无论测多少次，结果完全一致
     function getFinalScore(b) {
       let score;
-      if (b >= 95) score = 8.6 + (b - 95) * 0.12;
-      else if (b >= 90) score = 8.1 + (b - 90) * 0.10;
-      else if (b >= 85) score = 7.6 + (b - 85) * 0.10;
-      else if (b >= 80) score = 7.0 + (b - 80) * 0.12;
-      else if (b >= 75) score = 6.5 + (b - 75) * 0.10;
-      else if (b >= 70) score = 6.0 + (b - 70) * 0.10;
-      else if (b >= 60) score = 5.3 + (b - 60) * 0.08;
-      else if (b >= 50) score = 4.6 + (b - 50) * 0.07;
-      else score = 3.8 + (b / 50) * 0.8;
 
-      score += (Math.random() - 0.5) * 0.12;
+      if (b >= 95) {
+        score = 8.6 + (b - 95) * 0.12;
+      } else if (b >= 90) {
+        score = 8.1 + (b - 90) * 0.10;
+      } else if (b >= 85) {
+        score = 7.6 + (b - 85) * 0.10;
+      } else if (b >= 80) {
+        score = 7.0 + (b - 80) * 0.12;   // 80以上直接7+
+      } else if (b >= 75) {
+        score = 6.5 + (b - 75) * 0.10;
+      } else if (b >= 70) {
+        score = 6.0 + (b - 70) * 0.10;
+      } else if (b >= 60) {
+        score = 5.3 + (b - 60) * 0.08;
+      } else if (b >= 50) {
+        score = 4.6 + (b - 50) * 0.07;
+      } else {
+        score = 3.8 + (b / 50) * 0.8;
+      }
+
+      // 已移除随机扰动，保证同一张照片结果完全一致
       score = Math.round(score * 10) / 10;
       score = Math.max(2.0, Math.min(9.2, score));
       return score;
     }
+    // ================================================================
 
     function getLabel(score) {
       if (score < 1.5) return { text: "严重畸形，干扰形象", color: "#bbb" };
@@ -123,18 +136,17 @@
       if (score < 4.2) return { text: "明显低于平均（服务行业基层常见）", color: "#666" };
       if (score < 4.8) return { text: "中位数区间，普通大众密集区", color: "#555" };
       if (score < 5.3) return { text: "中等偏上，偶有回头率", color: "#ff9500" };
-      if (score < 5.7) return { text: "前30%，两性市场有明显优势", color: "#ff8800" };
-      if (score < 6.2) return { text: "前5%，入门级帅哥美女", color: "#ff7700" };
-      if (score < 6.5) return { text: "前2%，系花/系草水平", color: "#ff6600" };
-      if (score < 6.9) return { text: "前1%，小网红/主播的颜值门槛", color: "#f05500" };
-      if (score < 7.2) return { text: "前0.1%，颜霸级，街上几乎不存在", color: "#e04400" };
-      if (score < 7.6) return { text: "前0.05%，顶流idol段位", color: "#c83300" };
+      if (score < 5.7) return { text: "前10%，两性市场有明显优势", color: "#ff8800" };
+      if (score < 6.2) return { text: "前2-5%，入门级帅哥美女", color: "#ff7700" };
+      if (score < 6.5) return { text: "前1%，系花/系草水平", color: "#ff6600" };
+      if (score < 6.9) return { text: "前0.1%，中部网红/爱豆的颜值舒适区", color: "#f05500" };
+      if (score < 7.2) return { text: "前0.001%，颜霸级，街上几乎不存在", color: "#e04400" };
+      if (score < 7.6) return { text: "前0.00001%，顶流idol段位", color: "#c83300" };
       if (score < 8.2) return { text: "娱乐圈天花板颜值", color: "#b02000" };
-      if (score < 8.7) return { text: "接近十万分之一，亚洲级别稀缺", color: "#901000" };
+      if (score < 8.7) return { text: "百万分之一，亚洲级别稀缺", color: "#901000" };
       return { text: "传世级颜值，亚洲几十年一遇", color: "#700000" };
     }
 
-    // 根据分数给出提升建议
     function getSuggestion(score) {
       if (score < 4.5) {
         return "基础提升空间很大。建议先从皮肤管理、发型和眉形开始优化。保持良好睡眠 + 规律护肤，比任何滤镜都有效。";
@@ -158,7 +170,6 @@
         document.getElementById('scoreArea').classList.add('hidden');
         document.getElementById('suggestionArea').classList.add('hidden');
 
-        // 专业加载文案
         document.getElementById('message').innerHTML = 
           '<span class="text-gray-400 text-sm">正在调用多模态视觉大模型 + 骨相数据库进行深度分析...</span>';
 
@@ -174,7 +185,7 @@
           document.getElementById('scoreArea').innerHTML = `
             <div class="text-8xl font-bold tracking-tighter mb-1" style="color:${label.color}">${score}</div>
             <div class="text-base font-medium mb-2" style="color:${label.color}">${label.text}</div>
-            <div class="text-sm text-gray-400 mb-6">肥爷综合评分（满分 8）</div>
+            <div class="text-sm text-gray-400 mb-6">肥爷综合评分（满分 9.2）</div>
             <div class="flex justify-center gap-8 text-sm text-gray-400">
               <span>性别：${gender}</span>
               <span>年龄：约 ${age} 岁</span>
@@ -182,7 +193,6 @@
           `;
           document.getElementById('scoreArea').classList.remove('hidden');
 
-          // 显示建议
           document.getElementById('suggestionText').innerHTML = suggestion;
           document.getElementById('suggestionArea').classList.remove('hidden');
 
