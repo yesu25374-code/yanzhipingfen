@@ -30,7 +30,7 @@
 <script>
 (function(){
 const uploadArea=document.getElementById('uploadArea'),fileInput=document.getElementById('fileInput'),previewArea=document.getElementById('previewArea'),canvas=document.getElementById('resultCanvas'),loader=document.getElementById('loaderMsg'),errorBox=document.getElementById('errorMsg'),resultPanel=document.getElementById('resultPanel'),resetBtn=document.getElementById('resetBtn'),nextBtn=document.getElementById('nextBtn'),totalScore=document.getElementById('totalScore'),rankTag=document.getElementById('rankTag'),featureScore=document.getElementById('featureScore'),proportionScore=document.getElementById('proportionScore'),structureScore=document.getElementById('structureScore'),commentBox=document.getElementById('commentBox'),providerNote=document.getElementById('providerNote');
-let modelsLoaded=false;const MODEL_URL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights',AI_URL='/api/baidu-face';
+let modelsLoaded=false;const MODEL_URL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights',AI_URL='https://yanzhipingfen-face-proxy.yesu25374.workers.dev';
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));const avg=a=>a.reduce((s,v)=>s+v,0)/a.length;const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);function scoreNear(v,ideal,tol,min=20){return clamp(100-Math.abs(v-ideal)/tol*100,min,100)}function status(t){loader.textContent=t;loader.style.display='block'}function hideStatus(){loader.style.display='none'}function showError(t){errorBox.textContent=t;errorBox.style.display='block';hideStatus()}function hideError(){errorBox.style.display='none'}
 async function loadModels(){if(modelsLoaded)return true;if(!window.faceapi)return false;try{await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)]);modelsLoaded=true;return true}catch{return false}}
 function tier(s){if(s>=9)return'跨时代标杆';if(s>=8)return'顶级娱乐圈颜值';if(s>=7)return'头部网红/颜值明星';if(s>=6.5)return'网红/偶像/三线明星';if(s>=6)return'标准帅哥美女';if(s>=5)return'有明显吸引力';return'普通素人'}
@@ -61,6 +61,7 @@ nextBtn.addEventListener('click',()=>{fileInput.value='';previewArea.style.displ
 </script>
 </body>
 </html>
+
 
 
 
