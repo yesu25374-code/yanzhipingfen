@@ -13,7 +13,7 @@
 <body>
   <main class="shell">
     <section class="hero">
-      <header class="hero-header"><div class="brand-row"><img class="brand-avatar" src="file:///D:/17115/Pictures/5BA73711F391BCCF21A14D161BD8791B.png" alt="肥爷头像"><div class="brand-copy"><p class="eyebrow">0.0-9.5 严苛分档 · AI大模型数据库 · 结构门控放大</p><h1>肥爷专业颜值评定</h1><p class="intro">上传一张正脸照片，系统会结合AI大模型数据库与本地面部结构指标，按正态分布尾部逻辑生成严苛评分。</p></div></div></header>
+      <header class="hero-header"><div class="brand-row"><img class="brand-avatar" src="avatar.png" alt="肥爷头像"><div class="brand-copy"><p class="eyebrow">0.0-9.5 严苛分档 · AI大模型数据库 · 结构门控放大</p><h1>肥爷专业颜值评定</h1><p class="intro">上传一张正脸照片，系统会结合AI大模型数据库与本地面部结构指标，按正态分布尾部逻辑生成严苛评分。</p></div></div></header>
       <div class="content">
         <label class="upload-area" id="uploadArea" for="fileInput"><span><p class="upload-title">选择正脸照片开始评估</p><p class="upload-desc">AI大模型数据库决定基础档位，本地结构决定放大倍率；高P、磨皮、滤镜、模糊或遮挡发型会触发质量/真实性修正。</p></span><input type="file" id="fileInput" accept="image/*"></label>
         <div class="preview-container" id="previewArea"><canvas id="resultCanvas" width="640" height="480"></canvas></div>
@@ -30,7 +30,7 @@
 <script>
 (function(){
 const uploadArea=document.getElementById('uploadArea'),fileInput=document.getElementById('fileInput'),previewArea=document.getElementById('previewArea'),canvas=document.getElementById('resultCanvas'),loader=document.getElementById('loaderMsg'),errorBox=document.getElementById('errorMsg'),resultPanel=document.getElementById('resultPanel'),resetBtn=document.getElementById('resetBtn'),nextBtn=document.getElementById('nextBtn'),totalScore=document.getElementById('totalScore'),rankTag=document.getElementById('rankTag'),featureScore=document.getElementById('featureScore'),proportionScore=document.getElementById('proportionScore'),structureScore=document.getElementById('structureScore'),commentBox=document.getElementById('commentBox'),providerNote=document.getElementById('providerNote');
-let modelsLoaded=false;const MODEL_URL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights',AI_URL='http://127.0.0.1:8787/api/baidu-face';
+let modelsLoaded=false;const MODEL_URL='https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@0.22.2/weights',AI_URL='/api/baidu-face';
 const clamp=(v,min,max)=>Math.min(max,Math.max(min,v));const avg=a=>a.reduce((s,v)=>s+v,0)/a.length;const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);function scoreNear(v,ideal,tol,min=20){return clamp(100-Math.abs(v-ideal)/tol*100,min,100)}function status(t){loader.textContent=t;loader.style.display='block'}function hideStatus(){loader.style.display='none'}function showError(t){errorBox.textContent=t;errorBox.style.display='block';hideStatus()}function hideError(){errorBox.style.display='none'}
 async function loadModels(){if(modelsLoaded)return true;if(!window.faceapi)return false;try{await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)]);modelsLoaded=true;return true}catch{return false}}
 function tier(s){if(s>=9)return'跨时代标杆';if(s>=8)return'顶级娱乐圈颜值';if(s>=7)return'头部网红/颜值明星';if(s>=6.5)return'网红/偶像/三线明星';if(s>=6)return'标准帅哥美女';if(s>=5)return'有明显吸引力';return'普通素人'}
@@ -61,6 +61,8 @@ nextBtn.addEventListener('click',()=>{fileInput.value='';previewArea.style.displ
 </script>
 </body>
 </html>
+
+
 
 
 
