@@ -62,7 +62,9 @@ async function analyzeAI(file){
       const maskPenalty=data.mask?.type===1?.25:0;
       let score=mapAIBeauty(beauty)-posePenalty-(completeness<.9?.08:0)-maskPenalty;
       score=Number(clamp(score,1,9.5).toFixed(1));
-      return{score,beautyRaw:beauty,gender,tier:tier(score),reason:`AI大模型数据库原始分 ${beauty}/100，映射为 ${score} 分（${label(score)}）。`,strengths:[beauty>=80?'AI分位处于右尾':'已读取AI分位'],weaknesses:[],provider:'AI大模型数据库',providerDetail:`AI ${beauty}/100 · API ${apiUrl.replace(/^https?:\/\//,'')}`,metrics:{feature:Math.round(beauty),proportion:60,structure:60}}
+      const tx=data.tencent||null;
+      const txText=tx&&tx.ok?(' · 腾讯参考 '+Number(tx.beauty||0).toFixed(0)+'/100'+(tx.gender?' · 腾讯性别 '+tx.gender:'')):(tx&&tx.error?(' · 腾讯参考失败 '+tx.error):'');
+      return{score,beautyRaw:beauty,gender,tencent:tx,tier:tier(score),reason:'AI大模型数据库原始分 '+beauty+'/100，映射为 '+score+' 分（'+label(score)+'）。'+(tx&&tx.ok?(' 第三方腾讯参考分 '+Number(tx.beauty||0).toFixed(0)+'/100，仅供对照，暂不参与最终分。'):''),strengths:[beauty>=80?'AI分位处于右尾':'已读取AI分位'],weaknesses:[],provider:'AI大模型数据库',providerDetail:'AI '+beauty+'/100'+txText+' · API '+apiUrl.replace(/^https?:\/\//,''),metrics:{feature:Math.round(beauty),proportion:60,structure:60}}
     }catch(err){lastError=err}
   }
   throw new Error((lastError&&lastError.name==='AbortError')?'AI大模型数据库连接超时，当前网络可能无法访问海外代理域名。':(lastError?.message||'AI大模型数据库不可用'));
@@ -105,6 +107,7 @@ nextBtn.addEventListener('click',()=>{fileInput.value='';previewArea.style.displ
 </script>
 </body>
 </html>
+
 
 
 

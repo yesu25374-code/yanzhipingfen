@@ -1,8 +1,11 @@
+﻿const nodeCrypto = require('crypto');
 let cachedToken = null;
 let tokenExpiresAt = 0;
 
 const BAIDU_API_KEY = process.env.BAIDU_API_KEY;
 const BAIDU_SECRET_KEY = process.env.BAIDU_SECRET_KEY;
+const TENCENT_SECRET_ID = process.env.TENCENT_SECRET_ID;
+const TENCENT_SECRET_KEY = process.env.TENCENT_SECRET_KEY;
 
 function methodOf(event) {
   return event.httpMethod || event.requestContext?.http?.method || event.requestContext?.httpMethod || 'GET';
@@ -24,6 +27,18 @@ function response(payload, statusCode = 200) {
 function cleanBase64(image) {
   if (typeof image !== 'string') return '';
   return image.replace(/^data:image\/[a-zA-Z0-9.+-]+;base64,/, '').trim();
+}
+
+function sha256Hex(text) {
+  return nodeCrypto.createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
+function hmac(key, text) {
+  return nodeCrypto.createHmac('sha256', key).update(text, 'utf8').digest();
+}
+
+function hex(bytes) {
+  return Buffer.from(bytes).toString('hex');
 }
 
 async function getToken() {
@@ -87,6 +102,78 @@ async function detectFace(imageBase64) {
   };
 }
 
+async function detectTencentFace(imageBase64) {
+  if (!TENCENT_SECRET_ID || !TENCENT_SECRET_KEY) {
+    return { ok: false, error: 'Missing Tencent API credentials.' };
+  }
+
+  const host = 'iai.tencentcloudapi.com';
+  const service = 'iai';
+  const action = 'DetectFaceAttributes';
+  const version = '2018-03-01';
+  const region = 'ap-guangzhou';
+  const timestamp = Math.floor(Date.now() / 1000);
+  const date = new Date(timestamp * 1000).toISOString().slice(0, 10);
+  const payload = JSON.stringify({
+    Image: imageBase64,
+    MaxFaceNum: 1,
+    FaceAttributesType: 'Age,Beauty,Gender,Headpose,Eye,Eyebrow,Nose,Shape,Skin,Smile,Hair',
+    FaceModelVersion: '3.0',
+  });
+
+  const canonicalHeaders = `content-type:application/json; charset=utf-8\nhost:${host}\nx-tc-action:${action.toLowerCase()}\n`;
+  const signedHeaders = 'content-type;host;x-tc-action';
+  const hashedPayload = sha256Hex(payload);
+  const canonicalRequest = `POST\n/\n\n${canonicalHeaders}\n${signedHeaders}\n${hashedPayload}`;
+  const credentialScope = `${date}/${service}/tc3_request`;
+  const stringToSign = `TC3-HMAC-SHA256\n${timestamp}\n${credentialScope}\n${sha256Hex(canonicalRequest)}`;
+  const secretDate = await hmac(`TC3${TENCENT_SECRET_KEY}`, date);
+  const secretService = await hmac(secretDate, service);
+  const secretSigning = await hmac(secretService, 'tc3_request');
+  const signature = hex(await hmac(secretSigning, stringToSign));
+  const authorization = `TC3-HMAC-SHA256 Credential=${TENCENT_SECRET_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
+  const res = await fetch(`https://${host}`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/json; charset=utf-8',
+      Host: host,
+      'X-TC-Action': action,
+      'X-TC-Timestamp': String(timestamp),
+      'X-TC-Version': version,
+      'X-TC-Region': region,
+    },
+    body: payload,
+  });
+
+  const data = await res.json();
+  const response = data.Response || {};
+  if (!res.ok || response.Error) {
+    return { ok: false, error: response.Error?.Message || `Tencent face failed with HTTP ${res.status}.`, code: response.Error?.Code };
+  }
+
+  const face = response.FaceDetailInfos?.[0] || {};
+  const attrs = face.FaceDetailAttributesInfo || {};
+  return {
+    ok: true,
+    provider: 'tencent-iai-detect-face-attributes',
+    beauty: Number(attrs.Beauty || 0),
+    age: attrs.Age,
+    gender: attrs.Gender,
+    headPose: attrs.HeadPose,
+    eye: attrs.Eye,
+    eyebrow: attrs.Eyebrow,
+    nose: attrs.Nose,
+    shape: attrs.Shape,
+    skin: attrs.Skin,
+    smile: attrs.Smile,
+    hair: attrs.Hair,
+    faceRect: face.FaceRect,
+    requestId: response.RequestId,
+  };
+}
+
 exports.main_handler = async (event) => {
   const method = methodOf(event);
   if (method === 'OPTIONS') return response({}, 204);
@@ -97,6 +184,8 @@ exports.main_handler = async (event) => {
       provider: 'baidu-face-v3',
       hasApiKey: Boolean(BAIDU_API_KEY),
       hasSecretKey: Boolean(BAIDU_SECRET_KEY),
+      hasTencentSecretId: Boolean(TENCENT_SECRET_ID),
+      hasTencentSecretKey: Boolean(TENCENT_SECRET_KEY),
       tokenCached: Boolean(cachedToken),
     });
   }
@@ -110,8 +199,13 @@ exports.main_handler = async (event) => {
     const body = typeof rawBody === 'string' ? JSON.parse(rawBody || '{}') : (rawBody || {});
     const imageBase64 = cleanBase64(body.image);
     if (!imageBase64) return response({ error: 'Missing image base64 parameter.' }, 400);
-    return response(await detectFace(imageBase64));
+    const [baidu, tencent] = await Promise.all([
+      detectFace(imageBase64),
+      detectTencentFace(imageBase64).catch(error => ({ ok: false, error: error.message || 'Tencent face failed.' })),
+    ]);
+    return response({ ...baidu, tencent });
   } catch (error) {
     return response({ error: error.message || 'Face detect failed.' }, 500);
   }
 };
+
