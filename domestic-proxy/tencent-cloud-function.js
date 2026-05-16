@@ -118,15 +118,18 @@ async function recognizeCelebrity(imageBase64) {
       throw new Error(data.msg || `TianAPI scanstar failed with HTTP ${res.status}.`);
     }
     const result = data.result || {};
-    const results = result.name ? [{
-      name: result.name,
-      score: result.trust ?? null,
-      desc: result.desc || '',
-      sex: result.sex || '',
-      occupation: result.occupation || '',
-      nationality: result.nationality || '',
-      nativePlace: result.nativePlace || '',
-    }] : [];
+    const sourceList = Array.isArray(result.list) ? result.list : (result.name ? [result] : []);
+    const results = sourceList
+      .filter(item => item && item.name && item.name !== '未知图像')
+      .map(item => ({
+        name: item.name,
+        score: item.trust ?? null,
+        desc: item.desc || '',
+        sex: item.sex || '',
+        occupation: item.occupation || '',
+        nationality: item.nationality || '',
+        nativePlace: item.nativePlace || '',
+      }));
     return { ok: true, configured: true, provider: 'tianapi-scanstar', results, rawCode: data.code };
   } catch (error) {
     return { ok: false, configured: true, error: error.message || 'TianAPI celebrity recognition failed.' };
