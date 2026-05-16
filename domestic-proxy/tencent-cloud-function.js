@@ -4,11 +4,7 @@ let tokenExpiresAt = 0;
 
 const BAIDU_API_KEY = process.env.BAIDU_API_KEY;
 const BAIDU_SECRET_KEY = process.env.BAIDU_SECRET_KEY;
-const ALIYUN_ACCESS_KEY_ID = process.env.ALIYUN_ACCESS_KEY_ID;
-const ALIYUN_ACCESS_KEY_SECRET = process.env.ALIYUN_ACCESS_KEY_SECRET;
-const ALIYUN_OSS_BUCKET = process.env.ALIYUN_OSS_BUCKET;
-const ALIYUN_OSS_REGION = process.env.ALIYUN_OSS_REGION || 'oss-cn-shanghai';
-const ALIYUN_OSS_PREFIX = process.env.ALIYUN_OSS_PREFIX || 'yanzhipingfen-celebrity';
+const TIANAPI_KEY = process.env.TIANAPI_KEY;
 
 function methodOf(event) {
   return event.httpMethod || event.requestContext?.http?.method || event.requestContext?.httpMethod || 'GET';
@@ -42,19 +38,6 @@ function hmac(key, text) {
 
 function hex(bytes) {
   return Buffer.from(bytes).toString('hex');
-}
-
-function hmacSha1Base64(key, text) {
-  return nodeCrypto.createHmac('sha1', key).update(text, 'utf8').digest('base64');
-}
-
-function percentEncode(value) {
-  return encodeURIComponent(String(value))
-    .replace(/\!/g, '%21')
-    .replace(/\*/g, '%2A')
-    .replace(/\(/g, '%28')
-    .replace(/\)/g, '%29')
-    .replace(/'/g, '%27');
 }
 
 async function getToken() {
@@ -118,90 +101,35 @@ async function detectFace(imageBase64) {
   };
 }
 
-function aliyunReady() {
-  return Boolean(ALIYUN_ACCESS_KEY_ID && ALIYUN_ACCESS_KEY_SECRET && ALIYUN_OSS_BUCKET);
-}
-
-async function uploadImageToOss(imageBase64) {
-  const endpoint = `${ALIYUN_OSS_REGION}.aliyuncs.com`;
-  const objectName = `${ALIYUN_OSS_PREFIX}/${Date.now()}-${nodeCrypto.randomBytes(8).toString('hex')}.jpg`;
-  const body = Buffer.from(imageBase64, 'base64');
-  const date = new Date().toUTCString();
-  const contentType = 'image/jpeg';
-  const headers = {
-    Date: date,
-    'Content-Type': contentType,
-    'x-oss-object-acl': 'public-read',
-  };
-  const ossHeaders = 'x-oss-object-acl:public-read\n';
-  const resource = `/${ALIYUN_OSS_BUCKET}/${objectName}`;
-  const stringToSign = `PUT\n\n${contentType}\n${date}\n${ossHeaders}${resource}`;
-  const signature = hmacSha1Base64(ALIYUN_ACCESS_KEY_SECRET, stringToSign);
-  const url = `https://${ALIYUN_OSS_BUCKET}.${endpoint}/${objectName}`;
-  const res = await fetch(url, {
-    method: 'PUT',
-    headers: {
-      ...headers,
-      Authorization: `OSS ${ALIYUN_ACCESS_KEY_ID}:${signature}`,
-    },
-    body,
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`OSS upload failed with HTTP ${res.status}. ${text.slice(0, 160)}`);
-  }
-  return url;
-}
-
-async function detectCelebrity(imageUrl) {
-  const host = 'facebody.cn-shanghai.aliyuncs.com';
-  const params = {
-    Action: 'DetectCelebrity',
-    Version: '2019-12-30',
-    Format: 'JSON',
-    AccessKeyId: ALIYUN_ACCESS_KEY_ID,
-    SignatureMethod: 'HMAC-SHA1',
-    SignatureVersion: '1.0',
-    SignatureNonce: nodeCrypto.randomBytes(16).toString('hex'),
-    Timestamp: new Date().toISOString(),
-    ImageURL: imageUrl,
-  };
-  const sorted = Object.keys(params).sort();
-  const canonical = sorted.map(key => `${percentEncode(key)}=${percentEncode(params[key])}`).join('&');
-  const stringToSign = `GET&%2F&${percentEncode(canonical)}`;
-  const signature = hmacSha1Base64(`${ALIYUN_ACCESS_KEY_SECRET}&`, stringToSign);
-  const url = `https://${host}/?${canonical}&Signature=${percentEncode(signature)}`;
-  const res = await fetch(url);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.Code) {
-    throw new Error(data.Message || data.Code || `DetectCelebrity failed with HTTP ${res.status}.`);
-  }
-  const results = data.Data?.FaceRecognizeResults || [];
-  const list = Array.isArray(results) ? results : [results].filter(Boolean);
-  return {
-    ok: true,
-    provider: 'aliyun-detect-celebrity',
-    results: list.map(item => ({
-      name: item.Name || item.name || '',
-      score: item.Score ?? item.Confidence ?? null,
-      faceBoxes: item.FaceBoxes || item.faceBoxes || [],
-    })).filter(item => item.name),
-    width: data.Data?.Width,
-    height: data.Data?.Height,
-    requestId: data.RequestId,
-  };
-}
-
 async function recognizeCelebrity(imageBase64) {
-  if (!aliyunReady()) {
-    return { ok: false, configured: false, error: 'Aliyun celebrity recognition is not configured.' };
+  if (!TIANAPI_KEY) {
+    return { ok: false, configured: false, error: 'TianAPI celebrity recognition is not configured.' };
   }
   try {
-    const imageUrl = await uploadImageToOss(imageBase64);
-    const celebrity = await detectCelebrity(imageUrl);
-    return { ...celebrity, configured: true };
+    const body = new URLSearchParams();
+    body.set('img', imageBase64);
+    const res = await fetch(`https://apis.tianapi.com/scanstar/index?key=${encodeURIComponent(TIANAPI_KEY)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || Number(data.code) !== 200) {
+      throw new Error(data.msg || `TianAPI scanstar failed with HTTP ${res.status}.`);
+    }
+    const result = data.result || {};
+    const results = result.name ? [{
+      name: result.name,
+      score: result.trust ?? null,
+      desc: result.desc || '',
+      sex: result.sex || '',
+      occupation: result.occupation || '',
+      nationality: result.nationality || '',
+      nativePlace: result.nativePlace || '',
+    }] : [];
+    return { ok: true, configured: true, provider: 'tianapi-scanstar', results, rawCode: data.code };
   } catch (error) {
-    return { ok: false, configured: true, error: error.message || 'Aliyun celebrity recognition failed.' };
+    return { ok: false, configured: true, error: error.message || 'TianAPI celebrity recognition failed.' };
   }
 }
 
@@ -215,9 +143,7 @@ exports.main_handler = async (event) => {
       provider: 'baidu-face-v3',
       hasApiKey: Boolean(BAIDU_API_KEY),
       hasSecretKey: Boolean(BAIDU_SECRET_KEY),
-      hasAliyunAccessKey: Boolean(ALIYUN_ACCESS_KEY_ID),
-      hasAliyunSecret: Boolean(ALIYUN_ACCESS_KEY_SECRET),
-      hasAliyunOssBucket: Boolean(ALIYUN_OSS_BUCKET),
+      hasTianApiKey: Boolean(TIANAPI_KEY),
       tokenCached: Boolean(cachedToken),
     });
   }
