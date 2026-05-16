@@ -110,7 +110,7 @@ async function detectTencentFace(imageBase64) {
   const host = 'iai.tencentcloudapi.com';
   const service = 'iai';
   const action = 'DetectFaceAttributes';
-  const version = '2018-03-01';
+  const version = '2020-03-03';
   const region = 'ap-guangzhou';
   const timestamp = Math.floor(Date.now() / 1000);
   const date = new Date(timestamp * 1000).toISOString().slice(0, 10);
@@ -155,10 +155,15 @@ async function detectTencentFace(imageBase64) {
 
   const face = response.FaceDetailInfos?.[0] || {};
   const attrs = face.FaceDetailAttributesInfo || {};
+  const beautyRaw = Number(attrs.Beauty || 0);
+  const sixDimBeauty = estimateTencentSixDimScore(attrs);
   return {
     ok: true,
     provider: 'tencent-iai-detect-face-attributes',
-    beauty: Number(attrs.Beauty || 0),
+    beauty: beautyRaw > 0 ? beautyRaw : sixDimBeauty,
+    beautyRaw,
+    beautySource: beautyRaw > 0 ? 'beauty' : 'six-dim',
+    sixDimBeauty,
     age: attrs.Age,
     gender: attrs.Gender,
     headPose: attrs.HeadPose,
@@ -172,6 +177,53 @@ async function detectTencentFace(imageBase64) {
     faceRect: face.FaceRect,
     requestId: response.RequestId,
   };
+}
+
+function toScore(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.max(0, Math.min(100, n));
+}
+
+function avgScores(values, fallback = null) {
+  const nums = values.map(toScore).filter(v => v !== null);
+  if (!nums.length) return fallback;
+  return nums.reduce((sum, v) => sum + v, 0) / nums.length;
+}
+
+function collectScores(value, keys = []) {
+  if (!value || typeof value !== 'object') return [];
+  const out = [];
+  for (const [key, child] of Object.entries(value)) {
+    if (!keys.length || keys.includes(key)) {
+      const score = toScore(child);
+      if (score !== null) out.push(score);
+    }
+    if (child && typeof child === 'object') out.push(...collectScores(child, keys));
+  }
+  return out;
+}
+
+function estimateTencentSixDimScore(attrs) {
+  const eye = avgScores(collectScores(attrs.Eye), null);
+  const eyebrow = avgScores(collectScores(attrs.Eyebrow), null);
+  const nose = avgScores(collectScores(attrs.Nose), null);
+  const shape = avgScores(collectScores(attrs.Shape), null);
+  const skin = avgScores(collectScores(attrs.Skin), null);
+  const hair = avgScores(collectScores(attrs.Hair), null);
+  const expression = avgScores([attrs.Smile], null);
+  const dims = [
+    { value: eye, weight: 0.22 },
+    { value: eyebrow, weight: 0.12 },
+    { value: nose, weight: 0.18 },
+    { value: shape, weight: 0.20 },
+    { value: skin, weight: 0.13 },
+    { value: avgScores([hair, expression], null), weight: 0.15 },
+  ].filter(item => item.value !== null);
+  if (!dims.length) return 0;
+  const totalWeight = dims.reduce((sum, item) => sum + item.weight, 0);
+  const score = dims.reduce((sum, item) => sum + item.value * item.weight, 0) / totalWeight;
+  return Number(score.toFixed(2));
 }
 
 exports.main_handler = async (event) => {
