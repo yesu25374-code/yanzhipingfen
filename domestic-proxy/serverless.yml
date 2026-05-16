@@ -13,8 +13,6 @@ inputs:
     variables:
       BAIDU_API_KEY: ${env:BAIDU_API_KEY}
       BAIDU_SECRET_KEY: ${env:BAIDU_SECRET_KEY}
-      TENCENT_SECRET_ID: ${env:TENCENT_SECRET_ID}
-      TENCENT_SECRET_KEY: ${env:TENCENT_SECRET_KEY}
   events:
     - http:
         parameters:
