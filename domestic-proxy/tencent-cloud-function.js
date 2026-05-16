@@ -5,16 +5,31 @@ let tokenExpiresAt = 0;
 const BAIDU_API_KEY = process.env.BAIDU_API_KEY;
 const BAIDU_SECRET_KEY = process.env.BAIDU_SECRET_KEY;
 const TIANAPI_KEY = process.env.TIANAPI_KEY;
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://yesu25374-code.github.io,http://127.0.0.1:8787,http://localhost:8787')
+  .split(',')
+  .map(item => item.trim())
+  .filter(Boolean);
 
 function methodOf(event) {
   return event.httpMethod || event.requestContext?.http?.method || event.requestContext?.httpMethod || 'GET';
 }
 
-function response(payload, statusCode = 200) {
+function originOf(event) {
+  const headers = event.headers || {};
+  return headers.origin || headers.Origin || '';
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true;
+  return ALLOWED_ORIGINS.some(item => origin === item);
+}
+
+function response(payload, statusCode = 200, origin = '') {
+  const allowOrigin = isOriginAllowed(origin) && origin ? origin : '*';
   return {
     statusCode,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowOrigin,
       'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
       'Access-Control-Allow-Headers': 'content-type',
       'Content-Type': 'application/json; charset=utf-8',
@@ -138,7 +153,9 @@ async function recognizeCelebrity(imageBase64) {
 
 exports.main_handler = async (event) => {
   const method = methodOf(event);
-  if (method === 'OPTIONS') return response({}, 204);
+  const origin = originOf(event);
+  if (!isOriginAllowed(origin)) return response({ error: 'Origin is not allowed.' }, 403, origin);
+  if (method === 'OPTIONS') return response({}, 204, origin);
 
   if (method === 'GET') {
     return response({
@@ -148,10 +165,10 @@ exports.main_handler = async (event) => {
       hasSecretKey: Boolean(BAIDU_SECRET_KEY),
       hasTianApiKey: Boolean(TIANAPI_KEY),
       tokenCached: Boolean(cachedToken),
-    });
+    }, 200, origin);
   }
 
-  if (method !== 'POST') return response({ error: 'Use POST with image base64.' }, 405);
+  if (method !== 'POST') return response({ error: 'Use POST with image base64.' }, 405, origin);
 
   try {
     const rawBody = event.isBase64Encoded && typeof event.body === 'string'
@@ -159,14 +176,13 @@ exports.main_handler = async (event) => {
       : event.body;
     const body = typeof rawBody === 'string' ? JSON.parse(rawBody || '{}') : (rawBody || {});
     const imageBase64 = cleanBase64(body.image);
-    if (!imageBase64) return response({ error: 'Missing image base64 parameter.' }, 400);
-    const [baidu, celebrity] = await Promise.all([
-      detectFace(imageBase64),
-      recognizeCelebrity(imageBase64),
-    ]);
+    if (!imageBase64) return response({ error: 'Missing image base64 parameter.' }, 400, origin);
+    if (imageBase64.length > 1800000) return response({ error: 'Image is too large after compression.' }, 413, origin);
+    const baidu = await detectFace(imageBase64);
+    const celebrity = body.celebrity === true ? await recognizeCelebrity(imageBase64) : { ok: false, configured: Boolean(TIANAPI_KEY), skipped: true };
     return response({ ...baidu, celebrity });
   } catch (error) {
-    return response({ error: error.message || 'Face detect failed.' }, 500);
+    return response({ error: error.message || 'Face detect failed.' }, 500, origin);
   }
 };
 
