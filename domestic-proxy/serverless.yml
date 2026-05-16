@@ -14,13 +14,10 @@ inputs:
       BAIDU_API_KEY: ${env:BAIDU_API_KEY}
       BAIDU_SECRET_KEY: ${env:BAIDU_SECRET_KEY}
   events:
-    - apigw:
+    - http:
         parameters:
-          serviceName: yanzhipingfen-face-proxy
-          protocols:
-            - https
-          environment: release
-          endpoints:
-            - path: /
-              method: ANY
-              enableCORS: true
+          netConfig:
+            enableIntranet: false
+            enableExtranet: true
+          qualifier: $DEFAULT
+          authType: NONE
