@@ -34,14 +34,39 @@
 (function(){
 const uploadArea=document.getElementById('uploadArea'),fileInput=document.getElementById('fileInput'),previewArea=document.getElementById('previewArea'),canvas=document.getElementById('resultCanvas'),loader=document.getElementById('loaderMsg'),errorBox=document.getElementById('errorMsg'),resultPanel=document.getElementById('resultPanel'),resetBtn=document.getElementById('resetBtn'),nextBtn=document.getElementById('nextBtn'),totalScore=document.getElementById('totalScore'),rankTag=document.getElementById('rankTag'),featureScore=document.getElementById('featureScore'),proportionScore=document.getElementById('proportionScore'),structureScore=document.getElementById('structureScore'),commentBox=document.getElementById('commentBox'),providerNote=document.getElementById('providerNote'),sampleName=document.getElementById('sampleName'),sampleScore=document.getElementById('sampleScore'),saveSampleBtn=document.getElementById('saveSampleBtn'),clearSamplesBtn=document.getElementById('clearSamplesBtn'),importSamplesBtn=document.getElementById('importSamplesBtn'),exportSamplesBtn=document.getElementById('exportSamplesBtn'),sampleImport=document.getElementById('sampleImport'),sampleList=document.getElementById('sampleList');
 let lastResult=null,lastVector=null;
-let modelsLoaded=false;const MODEL_URL='vendor/face-api/weights',AI_URL='https://yanzhipingfen-face-proxy.yesu25374.workers.dev';
+let modelsLoaded=false;const MODEL_URL='vendor/face-api/weights',DEFAULT_AI_URL='https://yanzhipingfen-face-proxy.yesu25374.workers.dev';
+function getApiCandidates(){const params=new URLSearchParams(location.search);const fromQuery=params.get('api');const fromStore=localStorage.getItem('feiye_api_url');const list=[fromQuery,fromStore,DEFAULT_AI_URL].filter(Boolean).map(v=>v.trim().replace(/\/+$/,''));return [...new Set(list)]}
+function setApiUrl(url){if(url)localStorage.setItem('feiye_api_url',url.trim().replace(/\/+$/,''))}
+function fetchWithTimeout(url,options,timeout=12000){const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),timeout);return fetch(url,{...options,signal:ctrl.signal}).finally(()=>clearTimeout(timer))}
 const clamp=(v,min,max)=>Number.isFinite(Number(v))?Math.min(max,Math.max(min,Number(v))):min;const avg=a=>a.reduce((s,v)=>s+v,0)/a.length;const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);function scoreNear(v,ideal,tol,min=20){return clamp(100-Math.abs(v-ideal)/tol*100,min,100)}function status(t){loader.textContent=t;loader.style.display='block'}function hideStatus(){loader.style.display='none'}function showError(t){errorBox.textContent=t;errorBox.style.display='block';hideStatus()}function hideError(){errorBox.style.display='none'}
 async function loadModels(){if(modelsLoaded)return true;if(!window.faceapi)return false;try{await Promise.all([faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)]);modelsLoaded=true;return true}catch{return false}}
 function tier(s){if(s>=9)return'跨时代标杆';if(s>=8)return'顶级娱乐圈颜值';if(s>=7)return'头部网红/颜值明星';if(s>=6.5)return'网红/偶像/三线明星';if(s>=6)return'标准帅哥美女';if(s>=5)return'有明显吸引力';return'普通素人'}
 function mapAIBeauty(b){b=clamp(Number(b)||0,0,100);let s;if(b<50)s=3.2+b/50*.6;else if(b<60)s=3.8+(b-50)*.04;else if(b<70)s=4.2+(b-60)*.06;else if(b<80)s=4.8+(b-70)*.22;else if(b<90)s=7+(b-80)*.10;else s=8+(b-90)*.10;return Number(clamp(s,1,9.5).toFixed(1))}
 function label(s){if(s<3)return'明显偏离';if(s<4)return'显著低于平均';if(s<5)return'普通素人';if(s<6)return'有明显吸引力';if(s<6.5)return'标准帅哥美女';if(s<7)return'网红/偶像/三线明星';if(s<8)return'头部网红/颜值明星';if(s<9)return'顶级娱乐圈颜值';return'跨时代标杆'}
 async function fileDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
-async function analyzeAI(file){const image=await fileDataUrl(file);const resp=await fetch(AI_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image})});const data=await resp.json().catch(()=>({}));if(!resp.ok||data.error)throw new Error(data.error||'AI大模型数据库不可用');const beauty=Number(data.beauty||0);const angle=data.angle||{},quality=data.quality||{};const genderRaw=(data.gender?.type||data.gender||'').toString().toLowerCase();const gender=genderRaw.includes('female')||genderRaw==='woman'?'female':genderRaw.includes('male')||genderRaw==='man'?'male':'unknown';const posePenalty=Math.min(.25,(Math.abs(+angle.yaw||0)+Math.abs(+angle.pitch||0)+Math.abs(+angle.roll||0))/280);const completeness=Number(quality.completeness||1);const maskPenalty=data.mask?.type===1?.25:0;let score=mapAIBeauty(beauty)-posePenalty-(completeness<.9?.08:0)-maskPenalty;score=Number(clamp(score,1,9.5).toFixed(1));return{score,beautyRaw:beauty,gender,tier:tier(score),reason:`AI大模型数据库原始分 ${beauty}/100，映射为 ${score} 分（${label(score)}）。`,strengths:[beauty>=80?'AI分位处于右尾':'已读取AI分位'],weaknesses:[],provider:'AI大模型数据库',providerDetail:`AI ${beauty}/100`,metrics:{feature:Math.round(beauty),proportion:60,structure:60}}}
+async function analyzeAI(file){
+  const image=await fileDataUrl(file);
+  let lastError=null;
+  for(const apiUrl of getApiCandidates()){
+    try{
+      const resp=await fetchWithTimeout(apiUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image})},15000);
+      const data=await resp.json().catch(()=>({}));
+      if(!resp.ok||data.error)throw new Error(data.error||'AI大模型数据库不可用');
+      setApiUrl(apiUrl);
+      const beauty=Number(data.beauty||0);
+      const angle=data.angle||{},quality=data.quality||{};
+      const genderRaw=(data.gender?.type||data.gender||'').toString().toLowerCase();
+      const gender=genderRaw.includes('female')||genderRaw==='woman'?'female':genderRaw.includes('male')||genderRaw==='man'?'male':'unknown';
+      const posePenalty=Math.min(.25,(Math.abs(+angle.yaw||0)+Math.abs(+angle.pitch||0)+Math.abs(+angle.roll||0))/280);
+      const completeness=Number(quality.completeness||1);
+      const maskPenalty=data.mask?.type===1?.25:0;
+      let score=mapAIBeauty(beauty)-posePenalty-(completeness<.9?.08:0)-maskPenalty;
+      score=Number(clamp(score,1,9.5).toFixed(1));
+      return{score,beautyRaw:beauty,gender,tier:tier(score),reason:`AI大模型数据库原始分 ${beauty}/100，映射为 ${score} 分（${label(score)}）。`,strengths:[beauty>=80?'AI分位处于右尾':'已读取AI分位'],weaknesses:[],provider:'AI大模型数据库',providerDetail:`AI ${beauty}/100 · API ${apiUrl.replace(/^https?:\/\//,'')}`,metrics:{feature:Math.round(beauty),proportion:60,structure:60}}
+    }catch(err){lastError=err}
+  }
+  throw new Error((lastError&&lastError.name==='AbortError')?'AI大模型数据库连接超时，当前网络可能无法访问海外代理域名。':(lastError?.message||'AI大模型数据库不可用'));
+}
 function drawLandmarks(ctx,pts){ctx.fillStyle='#f4d59d';ctx.strokeStyle='rgba(15,17,22,.85)';ctx.lineWidth=2;pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,2.1,0,Math.PI*2);ctx.fill();ctx.stroke()})}
 function angleAt(a,b,c){const ab={x:a.x-b.x,y:a.y-b.y},cb={x:c.x-b.x,y:c.y-b.y};const m=Math.hypot(ab.x,ab.y)*Math.hypot(cb.x,cb.y);return m?Math.acos(clamp((ab.x*cb.x+ab.y*cb.y)/m,-1,1))*180/Math.PI:0}
 function imageSharpness(ctx,w,h){try{const data=ctx.getImageData(0,0,w,h).data,step=Math.max(2,Math.floor(Math.sqrt(w*h/90000)));let sum=0,count=0;for(let y=step;y<h-step;y+=step){for(let x=step;x<w-step;x+=step){const i=(y*w+x)*4,li=(y*w+x-step)*4,ri=(y*w+x+step)*4,ui=((y-step)*w+x)*4,di=((y+step)*w+x)*4;const c=data[i]*.299+data[i+1]*.587+data[i+2]*.114,l=data[li]*.299+data[li+1]*.587+data[li+2]*.114,r=data[ri]*.299+data[ri+1]*.587+data[ri+2]*.114,u=data[ui]*.299+data[ui+1]*.587+data[ui+2]*.114,d=data[di]*.299+data[di+1]*.587+data[di+2]*.114;sum+=Math.abs(4*c-l-r-u-d);count++}}return clamp((sum/Math.max(count,1)-4)/34,0,1)}catch{return .75}}
@@ -79,6 +104,8 @@ nextBtn.addEventListener('click',()=>{fileInput.value='';previewArea.style.displ
 </script>
 </body>
 </html>
+
+
 
 
 
