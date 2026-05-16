@@ -1,0 +1,26 @@
+component: scf
+name: yanzhipingfen-face-proxy
+
+inputs:
+  name: yanzhipingfen-face-proxy
+  src: ./
+  handler: tencent-cloud-function.main_handler
+  runtime: Nodejs18.15
+  region: ap-guangzhou
+  memorySize: 128
+  timeout: 20
+  environment:
+    variables:
+      BAIDU_API_KEY: ${env:BAIDU_API_KEY}
+      BAIDU_SECRET_KEY: ${env:BAIDU_SECRET_KEY}
+  events:
+    - apigw:
+        parameters:
+          serviceName: yanzhipingfen-face-proxy
+          protocols:
+            - https
+          environment: release
+          endpoints:
+            - path: /
+              method: ANY
+              enableCORS: true

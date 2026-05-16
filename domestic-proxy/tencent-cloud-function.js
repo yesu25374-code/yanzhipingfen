@@ -4,6 +4,10 @@ let tokenExpiresAt = 0;
 const BAIDU_API_KEY = process.env.BAIDU_API_KEY;
 const BAIDU_SECRET_KEY = process.env.BAIDU_SECRET_KEY;
 
+function methodOf(event) {
+  return event.httpMethod || event.requestContext?.http?.method || event.requestContext?.httpMethod || 'GET';
+}
+
 function response(payload, statusCode = 200) {
   return {
     statusCode,
@@ -84,9 +88,10 @@ async function detectFace(imageBase64) {
 }
 
 exports.main_handler = async (event) => {
-  if (event.httpMethod === 'OPTIONS') return response({}, 204);
+  const method = methodOf(event);
+  if (method === 'OPTIONS') return response({}, 204);
 
-  if (event.httpMethod === 'GET') {
+  if (method === 'GET') {
     return response({
       ok: true,
       provider: 'baidu-face-v3',
@@ -96,10 +101,13 @@ exports.main_handler = async (event) => {
     });
   }
 
-  if (event.httpMethod !== 'POST') return response({ error: 'Use POST with image base64.' }, 405);
+  if (method !== 'POST') return response({ error: 'Use POST with image base64.' }, 405);
 
   try {
-    const body = typeof event.body === 'string' ? JSON.parse(event.body || '{}') : (event.body || {});
+    const rawBody = event.isBase64Encoded && typeof event.body === 'string'
+      ? Buffer.from(event.body, 'base64').toString('utf8')
+      : event.body;
+    const body = typeof rawBody === 'string' ? JSON.parse(rawBody || '{}') : (rawBody || {});
     const imageBase64 = cleanBase64(body.image);
     if (!imageBase64) return response({ error: 'Missing image base64 parameter.' }, 400);
     return response(await detectFace(imageBase64));
