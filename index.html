@@ -44,6 +44,7 @@ async function loadModels(){if(modelsLoaded)return true;if(!window.faceapi)retur
 function tier(s){if(s>=9)return'跨时代标杆';if(s>=8)return'顶级娱乐圈颜值';if(s>=7)return'头部网红/颜值明星';if(s>=6.5)return'网红/偶像/三线明星';if(s>=6)return'标准帅哥美女';if(s>=5)return'有明显吸引力';return'普通素人'}
 function mapAIBeauty(b){b=clamp(Number(b)||0,0,100);let s;if(b<50)s=3.2+b/50*.6;else if(b<60)s=3.8+(b-50)*.04;else if(b<70)s=4.2+(b-60)*.06;else if(b<80)s=4.8+(b-70)*.22;else if(b<90)s=7+(b-80)*.10;else s=8+(b-90)*.10;return Number(clamp(s,1,9.5).toFixed(1))}
 function label(s){if(s<3)return'明显偏离';if(s<4)return'显著低于平均';if(s<5)return'普通素人';if(s<6)return'有明显吸引力';if(s<6.5)return'标准帅哥美女';if(s<7)return'网红/偶像/三线明星';if(s<8)return'头部网红/颜值明星';if(s<9)return'顶级娱乐圈颜值';return'跨时代标杆'}
+function celebrityText(c){const list=c&&c.ok&&Array.isArray(c.results)?c.results.filter(x=>x.name):[];if(!list.length)return'';const top=list.slice(0,2).map(x=>x.score!==null&&x.score!==undefined?`${x.name} ${Number(x.score).toFixed(1)}`:x.name).join('、');return` 明星识别：${top}。`}
 async function fileDataUrl(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)})}
 async function analyzeAI(file){
   const image=await fileDataUrl(file);
@@ -63,7 +64,7 @@ async function analyzeAI(file){
       const maskPenalty=data.mask?.type===1?.25:0;
       let score=mapAIBeauty(beauty)-posePenalty-(completeness<.9?.08:0)-maskPenalty;
       score=Number(clamp(score,1,9.5).toFixed(1));
-      return{score,beautyRaw:beauty,baseBreakdown:{ai:beauty,local:null,mapped:score},gender,tier:tier(score),reason:'AI大模型数据库原始分 '+beauty+'/100，基础映射为 '+score+' 分（'+label(score)+'）。',strengths:[beauty>=80?'AI分位处于右尾':'已读取AI分位'],weaknesses:[],provider:'AI大模型数据库',providerDetail:'AI原始 '+beauty+'/100 · API '+apiUrl.replace(/^https?:\/\//,''),metrics:{feature:Math.round(beauty),proportion:60,structure:60}}
+      return{score,beautyRaw:beauty,baseBreakdown:{ai:beauty,local:null,mapped:score},gender,celebrity:data.celebrity||null,tier:tier(score),reason:'AI大模型数据库原始分 '+beauty+'/100，基础映射为 '+score+' 分（'+label(score)+'）。'+celebrityText(data.celebrity),strengths:[beauty>=80?'AI分位处于右尾':'已读取AI分位'],weaknesses:[],provider:'AI大模型数据库',providerDetail:'AI原始 '+beauty+'/100'+celebrityText(data.celebrity)+' · API '+apiUrl.replace(/^https?:\/\//,''),metrics:{feature:Math.round(beauty),proportion:60,structure:60}}
     }catch(err){lastError=err}
   }
   throw new Error((lastError&&lastError.name==='AbortError')?'AI大模型数据库连接超时，当前网络可能无法访问海外代理域名。':(lastError?.message||'AI大模型数据库不可用'));

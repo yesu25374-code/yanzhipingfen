@@ -13,6 +13,11 @@ inputs:
     variables:
       BAIDU_API_KEY: ${env:BAIDU_API_KEY}
       BAIDU_SECRET_KEY: ${env:BAIDU_SECRET_KEY}
+      ALIYUN_ACCESS_KEY_ID: ${env:ALIYUN_ACCESS_KEY_ID}
+      ALIYUN_ACCESS_KEY_SECRET: ${env:ALIYUN_ACCESS_KEY_SECRET}
+      ALIYUN_OSS_BUCKET: ${env:ALIYUN_OSS_BUCKET}
+      ALIYUN_OSS_REGION: ${env:ALIYUN_OSS_REGION}
+      ALIYUN_OSS_PREFIX: ${env:ALIYUN_OSS_PREFIX}
   events:
     - http:
         parameters:
